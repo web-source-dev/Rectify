@@ -22,7 +22,13 @@ export default function Login({ onLoggedIn }) {
         setStep("name");
       }
     } catch (err) {
-      setError(err.status === 401 ? "Incorrect PIN." : "Couldn't reach the server.");
+      if (err.status === 401) {
+        setError("Incorrect PIN.");
+      } else if (err.status === 429) {
+        setError("Too many attempts. Wait a few minutes and try again.");
+      } else {
+        setError("Couldn't reach the server.");
+      }
     } finally {
       setBusy(false);
     }

@@ -38,6 +38,8 @@ export default function PinScreen({ navigation }: Props) {
     } catch (e) {
       if (e instanceof ApiError && e.message === 'invalid_pin') {
         setError('Wrong PIN — try again.');
+      } else if (e instanceof ApiError && e.message === 'too_many_attempts') {
+        setError('Too many attempts. Wait a few minutes and try again.');
       } else {
         setError('Could not reach the server. Check your connection.');
       }

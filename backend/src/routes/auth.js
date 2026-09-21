@@ -10,9 +10,13 @@ const router = express.Router();
 // Hashed once at boot; the plaintext PIN only ever lives in the env var.
 const pinHash = bcrypt.hashSync(config.familyPin, 12);
 
+// A few family members, each on a couple of devices, mistyping a 4-digit PIN adds up
+// fast — 10/15min was tripping on normal use. This still makes brute-forcing the PIN
+// impractical (30 guesses / 15min against up to 10,000 combinations) while giving real
+// usage enough headroom.
 const pinLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'too_many_attempts' },
