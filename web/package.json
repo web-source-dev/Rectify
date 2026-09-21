@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "start": "serve -s dist -l tcp://0.0.0.0:9016"
+    "start": "serve -s dist -l tcp://0.0.0.0:4004"
   },
   "dependencies": {
     "react": "^19.2.8",

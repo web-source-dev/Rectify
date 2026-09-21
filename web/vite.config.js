@@ -5,11 +5,11 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 9016,
+    port: 4004,
     host: true,
   },
   preview: {
-    port: 9016,
+    port: 4004,
     host: true,
   },
 })

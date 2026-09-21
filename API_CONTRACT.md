@@ -1,7 +1,7 @@
 # API Contract — Family Chat & Backup
 
 Shared contract between `backend/`, `web/`, and `mobile/`. All three must match this exactly.
-Backend default port: `9015`. All REST routes are under `/api`. Socket.IO runs on the same
+Backend default port: `4003`. All REST routes are under `/api`. Socket.IO runs on the same
 HTTP server/port (default namespace `/`).
 
 ## Auth model
@@ -90,7 +90,7 @@ Connect: `io(BASE_URL, { auth: { token } })`
 ## Env vars (backend/.env)
 
 ```
-PORT=9015
+PORT=4003
 JWT_SECRET=<random 32+ byte secret>
 FAMILY_PIN=<the shared PIN, plaintext only in this env var; hashed at startup into memory>
 DATABASE_URL="file:./data/family.db"

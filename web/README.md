@@ -7,7 +7,7 @@ and videos, and chat with the family from a browser. Implements `../API_CONTRACT
 
 ```
 npm install
-cp .env.example .env      # set VITE_API_BASE_URL if the backend isn't on localhost:9015
+cp .env.example .env      # set VITE_API_BASE_URL if the backend isn't on localhost:4003
 npm run dev
 ```
 
@@ -21,7 +21,7 @@ Outputs static files to `dist/`. A few options:
 
 1. **PM2 on the same VPS as the backend** (matches `backend/ecosystem.config.js`): after
    `npm run build`, run `pm2 start ecosystem.config.cjs` from `web/` (`.cjs` because this
-   package is `"type": "module"`). This serves `dist/` via the `serve` package on port `9016`
+   package is `"type": "module"`). This serves `dist/` via the `serve` package on port `4004`
    (`npm run start`). Make sure `VITE_API_BASE_URL` pointed at the backend's public URL
    *before* `npm run build` — it's baked into the build, not read at runtime.
 2. **Nginx as a static root** instead of PM2: point Nginx at `web/dist` (a separate `server {}`

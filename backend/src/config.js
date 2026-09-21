@@ -39,7 +39,7 @@ function sanitizeCorsOrigin(raw) {
 }
 
 const config = {
-  port: parseInt(process.env.PORT || '9015', 10),
+  port: parseInt(process.env.PORT || '4003', 10),
   jwtSecret: required('JWT_SECRET'),
   familyPin: required('FAMILY_PIN'),
   databaseUrl: required('DATABASE_URL'),
