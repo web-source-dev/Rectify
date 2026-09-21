@@ -13,6 +13,8 @@ backend/data/
 web/dist/
 web/.vite/
 
+
+
 # Test / build tooling output
 coverage/
 *.tsbuildinfo

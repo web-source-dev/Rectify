@@ -4,10 +4,7 @@
  */
 
 // Your backend's base URL (no trailing slash), e.g. "https://chat.example.com".
-// For a real phone on the same Wi-Fi/network as your PC, use the PC's LAN IP
-// (find it with `ipconfig`, e.g. "http://192.168.1.3:4000") — 10.0.2.2 only
-// works when running on the Android emulator.
-export const API_BASE_URL = 'http://192.168.1.3:4000';
+export const API_BASE_URL = 'http://187.127.151.185:9015';
 
 // The site shown in the embedded browser screen.
 export const SITE_URL = 'https://kozanandihl.meb.k12.tr/';

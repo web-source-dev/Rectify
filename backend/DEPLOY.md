@@ -57,7 +57,7 @@ pm2 save
 pm2 startup    # run the command it prints (as a sudo-capable user) so it survives reboots
 ```
 
-Check it's alive: `curl http://localhost:4000/api/health` should return `{"status":"ok"}`.
+Check it's alive: `curl http://localhost:9015/api/health` should return `{"status":"ok"}`.
 
 ## 7. Put Nginx in front (TLS + WebSocket upgrade for Socket.IO)
 
@@ -75,7 +75,7 @@ server {
     client_max_body_size 320M;   # a little headroom over MAX_UPLOAD_MB
 
     location / {
-        proxy_pass http://127.0.0.1:4000;
+        proxy_pass http://127.0.0.1:9015;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

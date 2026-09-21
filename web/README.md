@@ -7,7 +7,7 @@ and videos, and chat with the family from a browser. Implements `../API_CONTRACT
 
 ```
 npm install
-cp .env.example .env      # set VITE_API_BASE_URL if the backend isn't on localhost:4000
+cp .env.example .env      # set VITE_API_BASE_URL if the backend isn't on localhost:9015
 npm run dev
 ```
 
@@ -17,11 +17,15 @@ npm run dev
 npm run build
 ```
 
-Outputs static files to `dist/`. Two easy options:
+Outputs static files to `dist/`. A few options:
 
-1. **Same VPS as the backend**: point Nginx at `web/dist` as a static root (a separate
-   `server {}` block or location, alongside the reverse-proxy config in `backend/DEPLOY.md`),
-   and set `VITE_API_BASE_URL` to the backend's public URL before running `npm run build`.
-2. **Any static host** (Netlify, Vercel, Cloudflare Pages, etc.) — just make sure
+1. **PM2 on the same VPS as the backend** (matches `backend/ecosystem.config.js`): after
+   `npm run build`, run `pm2 start ecosystem.config.js` from `web/`. This serves `dist/` via
+   the `serve` package on port `9016` (`npm run start`). Make sure `VITE_API_BASE_URL` pointed
+   at the backend's public URL *before* `npm run build` — it's baked into the build, not read
+   at runtime.
+2. **Nginx as a static root** instead of PM2: point Nginx at `web/dist` (a separate `server {}`
+   block or location, alongside the reverse-proxy config in `backend/DEPLOY.md`).
+3. **Any static host** (Netlify, Vercel, Cloudflare Pages, etc.) — just make sure
    `VITE_API_BASE_URL` points at the backend's public HTTPS URL at build time, and that the
    backend's `CORS_ORIGIN` allows this dashboard's origin.

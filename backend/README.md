@@ -12,7 +12,7 @@ npx prisma migrate dev --name init
 npm run dev
 ```
 
-Server listens on `PORT` (default `4000`). Health check: `GET http://localhost:4000/api/health`.
+Server listens on `PORT` (default `9015`). Health check: `GET http://localhost:9015/api/health`.
 
 ## Data
 

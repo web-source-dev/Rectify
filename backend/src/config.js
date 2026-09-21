@@ -11,7 +11,7 @@ function required(name) {
 }
 
 const config = {
-  port: parseInt(process.env.PORT || '4000', 10),
+  port: parseInt(process.env.PORT || '9015', 10),
   jwtSecret: required('JWT_SECRET'),
   familyPin: required('FAMILY_PIN'),
   databaseUrl: required('DATABASE_URL'),
