@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Backend data (SQLite DB + uploaded media)
+backend/data/
+
+# Web build output
+web/dist/
+web/.vite/
+
+# Test / build tooling output
+coverage/
+*.tsbuildinfo
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Android build output / local config
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/.kotlin/
+mobile/android/app/.cxx/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/index.android.bundle
+mobile/android/app/src/main/assets/index.android.bundle.map
+*.apk
+*.aab
+*.jsbundle
+*.hprof
+
+# Signing keys — never commit a real release keystore.
+# The RN debug keystore is not secret and is kept for reproducible debug builds.
+*.keystore
+*.jks
+!mobile/android/app/debug.keystore
+keystore.properties
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
