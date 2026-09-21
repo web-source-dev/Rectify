@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'family-web',
+      name: 'h4as-web',
       script: 'npm',
       args: 'run start',
       cwd: __dirname,

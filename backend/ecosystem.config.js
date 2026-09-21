@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'family-backend',
+      name: 'h4as-backend',
       script: 'src/index.js',
       cwd: __dirname,
       instances: 1,
