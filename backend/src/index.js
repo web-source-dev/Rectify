@@ -12,6 +12,11 @@ const { attachChat } = require('./sockets/chat');
 fs.mkdirSync(config.uploadDir, { recursive: true });
 
 const app = express();
+// In production the app sits behind one Nginx reverse proxy. Trusting that one
+// hop lets Express read the real client IP from X-Forwarded-For, which the PIN
+// rate limiter needs to tell devices apart (without it, every request looks
+// like it comes from Nginx and express-rate-limit logs a validation error).
+app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: config.corsOrigin }));
 app.use(express.json({ limit: '1mb' }));

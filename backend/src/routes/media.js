@@ -5,7 +5,21 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const { imageSize } = require('image-size');
-const sharp = require('sharp');
+// Loaded lazily: if sharp's native binary is missing on a server (e.g. `npm ci`
+// wasn't re-run after pulling), only thumbnails stop working — the server still starts.
+let sharpModule;
+function loadSharp() {
+  if (sharpModule === undefined) {
+    try {
+      sharpModule = require('sharp');
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('sharp unavailable — thumbnails disabled:', e.message);
+      sharpModule = null;
+    }
+  }
+  return sharpModule;
+}
 const config = require('../config');
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
@@ -253,6 +267,8 @@ async function ensureThumb(media) {
     const job = (async () => {
       await fsp.mkdir(thumbDir, { recursive: true });
       const tmp = `${dest}.${crypto.randomUUID()}.tmp`;
+      const sharp = loadSharp();
+      if (!sharp) throw new Error('sharp not installed');
       await sharp(mediaFilePath(media), { failOn: 'none' })
         .rotate() // respect EXIF orientation from phone cameras
         .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'inside', withoutEnlargement: true })

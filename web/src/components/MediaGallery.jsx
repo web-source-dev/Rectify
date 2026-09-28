@@ -25,6 +25,8 @@ const isVideo = (item) => item.mimeType?.startsWith("video");
 // thumbnail has loaded, so tiles never jump or overlap while loading.
 function Tile({ item, onOpen }) {
   const [state, setState] = useState("loading"); // loading | loaded | error
+  // If the server can't make a thumbnail, try the original before giving up.
+  const [useFull, setUseFull] = useState(false);
   const video = isVideo(item);
 
   return (
@@ -39,13 +41,13 @@ function Tile({ item, onOpen }) {
         <>
           {state === "loading" && <span className="media-tile-skeleton" />}
           <img
-            src={api.mediaThumbUrl(item.id)}
+            src={useFull ? api.mediaFileUrl(item.id) : api.mediaThumbUrl(item.id)}
             alt=""
             loading="lazy"
             decoding="async"
             className={`media-tile-img${state === "loaded" ? " is-loaded" : ""}`}
             onLoad={() => setState("loaded")}
-            onError={() => setState("error")}
+            onError={() => (useFull ? setState("error") : setUseFull(true))}
           />
         </>
       )}
