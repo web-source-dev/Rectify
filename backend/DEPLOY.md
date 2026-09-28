@@ -107,11 +107,14 @@ Certbot rewrites the Nginx config to serve HTTPS and sets up auto-renewal. After
 
 ```bash
 cd ~/app/backend
-git pull   # or re-copy the files
-npm ci --omit=dev
-npx prisma migrate deploy
+git pull   # or re-copy the files — including prisma/schema.prisma and prisma/migrations/
+npm ci --omit=dev   # also regenerates the Prisma client (postinstall)
+npm run migrate     # applies new migrations + regenerates the client
 pm2 restart family-backend
 ```
+
+If the logs show `Unknown field ... for include statement` or `table ... does not exist`, the
+database or the generated client is behind the code — run `npm run migrate` again and restart.
 
 ## Backups
 
