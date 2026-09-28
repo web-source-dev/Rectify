@@ -19,7 +19,10 @@ model Message {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  // Empty string for pure image messages.
   text      String
+  mediaId   String?
+  media     Media?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@index([createdAt])
@@ -36,6 +39,7 @@ model Media {
   width     Int?
   height    Int?
   createdAt DateTime @default(now())
+  messages  Message[]
 
   @@index([createdAt])
 }

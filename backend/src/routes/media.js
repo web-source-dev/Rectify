@@ -5,6 +5,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const { imageSize } = require('image-size');
+const sharp = require('sharp');
 const config = require('../config');
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
@@ -38,6 +39,13 @@ const EXT_BY_MIME = {
 
 function isMediaMime(mime) {
   return mime.startsWith('image/') || mime.startsWith('video/');
+}
+
+function mediaFilePath(media) {
+  const ext = EXT_BY_MIME[media.mimeType] || '';
+  const yyyy = String(media.createdAt.getFullYear());
+  const mm = String(media.createdAt.getMonth() + 1).padStart(2, '0');
+  return path.join(config.uploadDir, yyyy, mm, `${media.checksum}${ext}`);
 }
 
 function fileUrl(id) {
@@ -222,7 +230,64 @@ router.get('/media/:id/file', requireAuth, async (req, res) => {
   }
 
   res.setHeader('Content-Type', media.mimeType);
+  // A media id always points at the same bytes, so browsers may keep it.
+  res.setHeader('Cache-Control', 'private, max-age=86400');
   fs.createReadStream(filePath).pipe(res);
+});
+
+// Small previews for the gallery grid, generated once per photo and kept next
+// to the uploads. Videos (and formats sharp can't decode) have no thumbnail —
+// the client shows a placeholder tile for those.
+const THUMB_SIZE = 480;
+const thumbDir = path.join(config.uploadDir, 'thumbs');
+const thumbJobs = new Map(); // checksum -> in-flight generation promise
+
+function thumbPathFor(media) {
+  return path.join(thumbDir, `${media.checksum}.webp`);
+}
+
+async function ensureThumb(media) {
+  const dest = thumbPathFor(media);
+  if (fs.existsSync(dest)) return dest;
+  if (!thumbJobs.has(media.checksum)) {
+    const job = (async () => {
+      await fsp.mkdir(thumbDir, { recursive: true });
+      const tmp = `${dest}.${crypto.randomUUID()}.tmp`;
+      await sharp(mediaFilePath(media), { failOn: 'none' })
+        .rotate() // respect EXIF orientation from phone cameras
+        .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 72 })
+        .toFile(tmp);
+      await fsp.rename(tmp, dest);
+      return dest;
+    })().finally(() => thumbJobs.delete(media.checksum));
+    thumbJobs.set(media.checksum, job);
+  }
+  return thumbJobs.get(media.checksum);
+}
+
+router.get('/media/:id/thumb', requireAuth, async (req, res) => {
+  const media = await prisma.media.findUnique({ where: { id: req.params.id } });
+  if (!media) return res.status(404).json({ error: 'not_found' });
+  if (!media.mimeType.startsWith('image/')) {
+    return res.status(415).json({ error: 'no_thumbnail' });
+  }
+  if (!fs.existsSync(mediaFilePath(media))) {
+    return res.status(404).json({ error: 'file_missing' });
+  }
+
+  let thumbPath;
+  try {
+    thumbPath = await ensureThumb(media);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`thumbnail failed for ${media.id} (${media.mimeType}):`, e.message);
+    return res.status(415).json({ error: 'no_thumbnail' });
+  }
+
+  res.setHeader('Content-Type', 'image/webp');
+  res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+  fs.createReadStream(thumbPath).pipe(res);
 });
 
 router.delete('/media/:id', requireAuth, async (req, res) => {
@@ -237,6 +302,7 @@ router.delete('/media/:id', requireAuth, async (req, res) => {
 
   await prisma.media.delete({ where: { id: media.id } });
   await fsp.unlink(filePath).catch(() => {});
+  await fsp.unlink(thumbPathFor(media)).catch(() => {});
 
   res.status(204).end();
 });

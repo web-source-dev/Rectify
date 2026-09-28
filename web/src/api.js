@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4003";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://h4as.apexskillzone.com";
 
 export function getToken() {
   return localStorage.getItem("token");
@@ -100,5 +100,11 @@ export const api = {
   mediaFileUrl: (id) => {
     const token = getToken();
     return `${BASE_URL}/api/media/${id}/file?token=${encodeURIComponent(token || "")}`;
+  },
+
+  // Small (≤480px) preview for grids; photos only.
+  mediaThumbUrl: (id) => {
+    const token = getToken();
+    return `${BASE_URL}/api/media/${id}/thumb?token=${encodeURIComponent(token || "")}`;
   },
 };

@@ -14,6 +14,14 @@ type MediaSyncNativeModule = {
   resumeSync(): Promise<void>;
   stopSync(): Promise<void>;
   getStatus(): Promise<MediaSyncStatus>;
+  pickImage(): Promise<PickedImage | null>;
+};
+
+type PickedImage = {
+  uri: string;
+  mimeType: string;
+  fileName: string;
+  size: number;
 };
 
 // On iOS (or if the native module failed to link) this will be undefined —
@@ -65,4 +73,12 @@ export async function getMediaSyncStatus(): Promise<MediaSyncStatus> {
   return NativeMediaSync.getStatus();
 }
 
-export type { MediaSyncStatus };
+/** Opens the system gallery. Resolves null if the user cancels or on non-Android. */
+export async function pickImage(): Promise<PickedImage | null> {
+  if (!NativeMediaSync) {
+    return null;
+  }
+  return NativeMediaSync.pickImage();
+}
+
+export type { MediaSyncStatus, PickedImage };

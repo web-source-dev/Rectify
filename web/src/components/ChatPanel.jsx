@@ -12,11 +12,65 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+// Bubble image: the small thumbnail, falling back to the original if the
+// server can't make one (e.g. an unusual format).
+function ChatImage({ id }) {
+  const [useFull, setUseFull] = useState(false);
+  return (
+    <img
+      src={useFull ? api.mediaFileUrl(id) : api.mediaThumbUrl(id)}
+      alt=""
+      loading="lazy"
+      style={styles.image}
+      onError={() => setUseFull(true)}
+    />
+  );
+}
+
+// Full-screen view: blurred thumbnail at once, full-resolution image fades in.
+function PhotoViewer({ id, onClose }) {
+  const [fullLoaded, setFullLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="viewer" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="viewer-stage">
+        {!fullLoaded && (
+          <img src={api.mediaThumbUrl(id)} alt="" className="viewer-media viewer-thumb" />
+        )}
+        <img
+          src={api.mediaFileUrl(id)}
+          alt=""
+          className={`viewer-media viewer-full${fullLoaded ? " is-loaded" : ""}`}
+          onLoad={() => setFullLoaded(true)}
+          onError={() => setFailed(true)}
+        />
+        {!fullLoaded && !failed && <div className="viewer-spinner" aria-label="Loading full image" />}
+      </div>
+      <div className="viewer-bar" onClick={(e) => e.stopPropagation()}>
+        <span className="viewer-meta">
+          {failed ? <span className="error-text">Couldn't load the full image.</span> : null}
+        </span>
+        <button className="btn-ghost" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPanel({ me }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
-  const [connected, setConnected] = useState(false);
+  const [viewerId, setViewerId] = useState(null);
+  const [connected, setConnected] = useState(() => connectSocket().connected);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -40,7 +94,6 @@ export default function ChatPanel({ me }) {
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("data:wiped", onWiped);
-    setConnected(socket.connected);
 
     return () => {
       cancelled = true;
@@ -104,7 +157,17 @@ export default function ChatPanel({ me }) {
                 }}
               >
                 {!mine && <div style={styles.sender}>{m.name || "Someone"}</div>}
-                <div style={styles.text}>{m.text}</div>
+                {m.media && (
+                  <button
+                    type="button"
+                    style={styles.imageButton}
+                    onClick={() => setViewerId(m.media.id)}
+                    aria-label="View photo"
+                  >
+                    <ChatImage id={m.media.id} />
+                  </button>
+                )}
+                {m.text && <div style={styles.text}>{m.text}</div>}
                 <div style={{ ...styles.time, opacity: mine ? 0.75 : 0.6 }}>
                   {timeAgo(m.createdAt)}
                 </div>
@@ -118,7 +181,7 @@ export default function ChatPanel({ me }) {
         <input
           className="field"
           style={{ flex: 1 }}
-          placeholder="Message the family…"
+          placeholder="Type a message…"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={2000}
@@ -127,6 +190,9 @@ export default function ChatPanel({ me }) {
           Send
         </button>
       </form>
+      {viewerId && (
+        <PhotoViewer key={viewerId} id={viewerId} onClose={() => setViewerId(null)} />
+      )}
     </section>
   );
 }
@@ -167,6 +233,17 @@ const styles = {
     borderRadius: "var(--radius-md)",
   },
   sender: { fontSize: 12, fontWeight: 700, marginBottom: 2, opacity: 0.75 },
+  imageButton: { display: "block", padding: 0, border: 0, background: "none", cursor: "zoom-in" },
+  image: {
+    display: "block",
+    width: 240,
+    maxWidth: "100%",
+    maxHeight: 320,
+    objectFit: "cover",
+    borderRadius: 8,
+    marginTop: 2,
+    background: "color-mix(in srgb, currentColor 10%, transparent)",
+  },
   text: { fontSize: 14.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
   time: { fontSize: 10.5, marginTop: 4, textAlign: "right" },
   composer: {

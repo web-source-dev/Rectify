@@ -1,4 +1,5 @@
 const express = require('express');
+require('./async-errors');
 const http = require('http');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -28,8 +29,21 @@ app.use((req, res) => {
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err);
+  // Client mistakes flagged by middleware (e.g. malformed JSON → 400) keep
+  // their status instead of being reported as a server error.
+  if (err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({ error: 'bad_request' });
+  }
+  console.error(`${req.method} ${req.originalUrl} failed:`, err);
+  if (res.headersSent) {
+    return res.end();
+  }
   res.status(500).json({ error: 'internal_error' });
+});
+
+// Safety net: log a stray rejected promise instead of crashing the server.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
 });
 
 const server = http.createServer(app);

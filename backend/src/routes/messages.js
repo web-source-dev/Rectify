@@ -1,18 +1,9 @@
 const express = require('express');
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { serialize, createMessage } = require('../message-utils');
 
 const router = express.Router();
-
-function serialize(message) {
-  return {
-    id: message.id,
-    userId: message.userId,
-    name: message.user ? message.user.name : null,
-    text: message.text,
-    createdAt: message.createdAt.toISOString(),
-  };
-}
 
 router.get('/messages', requireAuth, async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -22,7 +13,7 @@ router.get('/messages', requireAuth, async (req, res) => {
 
   const rows = await prisma.message.findMany({
     where,
-    include: { user: true },
+    include: { user: true, media: true },
     orderBy: { createdAt: 'desc' },
     take: limit + 1,
   });
@@ -34,26 +25,15 @@ router.get('/messages', requireAuth, async (req, res) => {
 });
 
 router.post('/messages', requireAuth, async (req, res) => {
-  const { text } = req.body || {};
-  if (typeof text !== 'string') {
-    return res.status(400).json({ error: 'text_required' });
+  const { message, error } = await createMessage(req.userId, req.body);
+  if (error) {
+    return res.status(400).json({ error });
   }
-  const trimmed = text.trim();
-  if (trimmed.length < 1 || trimmed.length > 2000) {
-    return res.status(400).json({ error: 'text_invalid_length' });
-  }
-
-  const message = await prisma.message.create({
-    data: { userId: req.userId, text: trimmed },
-    include: { user: true },
-  });
-
-  const payload = serialize(message);
 
   const io = req.app.get('io');
-  if (io) io.emit('message:new', payload);
+  if (io) io.emit('message:new', message);
 
-  res.status(201).json(payload);
+  res.status(201).json(message);
 });
 
 module.exports = router;

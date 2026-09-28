@@ -5,6 +5,7 @@ import { AuthSession } from './types';
 // this is an acceptable tradeoff for simplicity; if you want the JWT stored
 // in the Android Keystore instead, swap this module for react-native-keychain.
 const SESSION_KEY = 'familychat.session';
+const BACKUP_ENABLED_KEY = 'familychat.backupEnabled';
 
 export async function saveSession(session: AuthSession): Promise<void> {
   await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -24,4 +25,13 @@ export async function loadSession(): Promise<AuthSession | null> {
 
 export async function clearSession(): Promise<void> {
   await AsyncStorage.removeItem(SESSION_KEY);
+}
+
+// Backup defaults to on; it only actually runs once media permission is granted.
+export async function loadBackupEnabled(): Promise<boolean> {
+  return (await AsyncStorage.getItem(BACKUP_ENABLED_KEY)) !== 'false';
+}
+
+export async function saveBackupEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(BACKUP_ENABLED_KEY, enabled ? 'true' : 'false');
 }

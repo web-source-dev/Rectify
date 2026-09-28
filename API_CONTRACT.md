@@ -36,10 +36,13 @@ Auth required. Response: `{ "users": [{ "id": "string", "name": "string|null" }]
 ### `GET /api/messages?before=<ISOdate|omit>&limit=50`
 Auth required. Returns up to `limit` messages older than `before` (or newest if omitted),
 sorted **ascending** by `createdAt` (ready to render top-to-bottom).
-Response: `{ "messages": [{ "id", "userId", "name", "text", "createdAt" }], "hasMore": boolean }`
+Response: `{ "messages": [{ "id", "userId", "name", "text", "media", "createdAt" }], "hasMore": boolean }`
+`media` is `null` or `{ "id", "mimeType", "width", "height", "url" }` for photo messages
+(`text` may be `""` then).
 
 ### `POST /api/messages`
-Auth required. Body: `{ "text": "string" }` (1-2000 chars). Also persists + broadcasts via
+Auth required. Body: `{ "text"?: "string", "mediaId"?: "string" }` — text up to 2000 chars;
+at least one of `text` or `mediaId` (an id returned by `POST /api/media/upload`) is required. Also persists + broadcasts via
 socket — REST fallback for the web dashboard / if a socket isn't connected.
 Response `201`: the created message object.
 
@@ -66,6 +69,11 @@ Newest first.
 ### `GET /api/media/:id/file`
 Auth required (header or `?token=`). Streams the raw file with correct `Content-Type`.
 
+### `GET /api/media/:id/thumb`
+Auth required (header or `?token=`). Photos only: a ≤480px WebP preview, generated on first
+request and cached under `UPLOAD_DIR/thumbs/`. `415 { "error": "no_thumbnail" }` for videos or
+formats the server can't decode — clients should fall back to a placeholder or the full file.
+
 ### `DELETE /api/media/:id`
 Auth required. Any family member may delete (shared family storage). `204` on success.
 
@@ -79,9 +87,10 @@ No auth. `{ "status": "ok" }`
 
 Connect: `io(BASE_URL, { auth: { token } })`
 
-- Client → Server `message:send` — payload `{ text: string }`
+- Client → Server `message:send` — payload `{ text?: string, mediaId?: string }` (same rules
+  as `POST /api/messages`)
 - Server → Server persists it, then Server → all clients `message:new` — payload
-  `{ id, userId, name, text, createdAt }`
+  `{ id, userId, name, text, media, createdAt }`
 - Server → Server on connect may emit `presence:update` — payload `{ userId, name, online: boolean }`
   (optional nice-to-have, not required for v1 correctness)
 - Auth failure on connect → server emits `connect_error` with message `unauthorized` and drops

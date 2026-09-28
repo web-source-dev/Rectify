@@ -17,11 +17,11 @@ export default function App() {
     if (!isMediaSyncAvailable()) {
       return;
     }
-    const syncWithAppState = (state: string) => {
+    const syncWithAppState = (state: string | null | undefined) => {
       if (state === 'active') {
-        void resumeMediaSync();
+        resumeMediaSync().catch(() => {});
       } else if (state === 'background' || state === 'inactive') {
-        void pauseMediaSync();
+        pauseMediaSync().catch(() => {});
       }
     };
     syncWithAppState(AppState.currentState);
@@ -31,7 +31,9 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <StatusBar barStyle="light-content" backgroundColor="#0b1220" />
+      {/* Android is always edge-to-edge on RN 0.87, so the bar is transparent
+          and each screen's dark background shows through it. */}
+      <StatusBar barStyle="light-content" />
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="WebView" component={WebViewScreen} />

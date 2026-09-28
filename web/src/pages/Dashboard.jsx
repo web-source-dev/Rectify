@@ -7,7 +7,7 @@ export default function Dashboard({ me, onLogout }) {
     <div style={styles.wrap}>
       <header style={styles.topbar}>
         <div>
-          <h1 style={styles.title}>Family</h1>
+          <h1 style={styles.title}>Chat</h1>
           <p style={styles.subtitle}>Signed in as {me?.name}</p>
         </div>
         <div style={styles.actions}>

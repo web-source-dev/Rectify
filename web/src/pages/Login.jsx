@@ -54,10 +54,10 @@ export default function Login({ onLoggedIn }) {
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Family</h1>
+        <h1 style={styles.title}>Chat</h1>
         {step === "pin" ? (
           <form onSubmit={submitPin}>
-            <p style={styles.hint}>Enter the family PIN to continue.</p>
+            <p style={styles.hint}>Enter the PIN to continue.</p>
             <input
               className="field"
               type="password"

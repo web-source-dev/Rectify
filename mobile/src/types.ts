@@ -3,11 +3,20 @@ export type User = {
   name: string | null;
 };
 
+export type MessageMedia = {
+  id: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  url: string;
+};
+
 export type ChatMessage = {
   id: string;
   userId: string;
   name: string;
   text: string;
+  media: MessageMedia | null;
   createdAt: string;
 };
 
