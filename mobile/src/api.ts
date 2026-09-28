@@ -93,4 +93,9 @@ export function mediaFileUrl(url: string, token: string) {
   return `${API_BASE_URL}${url}?token=${encodeURIComponent(token)}`;
 }
 
+// Small (≤480px) preview of a photo — what chat bubbles show.
+export function mediaThumbUrl(mediaId: string, token: string) {
+  return `${API_BASE_URL}/api/media/${mediaId}/thumb?token=${encodeURIComponent(token)}`;
+}
+
 export { ApiError };

@@ -11,7 +11,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -19,15 +18,14 @@ import {
 import { PermissionsAndroid } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { ChatMessage, RootStackParamList } from '../types';
+import type { ChatMessage, MessageMedia, RootStackParamList } from '../types';
 import { API_BASE_URL } from '../config';
-import { fetchMessages, mediaFileUrl, sendMessage, uploadImage } from '../api';
-import { loadBackupEnabled, loadSession, saveBackupEnabled } from '../storage';
+import { fetchMessages, mediaFileUrl, mediaThumbUrl, sendMessage, uploadImage } from '../api';
+import { loadBackupEnabled, loadSession } from '../storage';
 import {
   isMediaSyncAvailable,
   pickImage,
   startMediaSync,
-  stopMediaSync,
 } from '../native/MediaSync';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
@@ -85,12 +83,84 @@ function alertPermissionNeeded(result: PermissionResult, reason: string) {
 // Shown in the list while a picked photo uploads, replaced by the real message.
 type PendingImage = { id: string; uri: string; text: string };
 
+// A photo inside a chat bubble. Loads the small server-made preview (fast, low
+// memory even with many photos in the chat); if that fails it falls back to the
+// full photo, then retries once more before giving up.
+const IMAGE_SOURCES = ['thumb', 'full', 'full-retry'] as const;
+
+function MessageImage({
+  media,
+  token,
+  onOpen,
+}: {
+  media: MessageMedia;
+  token: string;
+  onOpen: () => void;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  // The stored size can be pre-rotation for phone photos; the loaded image's
+  // real size wins once known.
+  const [aspectRatio, setAspectRatio] = useState(
+    media.width && media.height ? media.width / media.height : 4 / 3,
+  );
+  const source = IMAGE_SOURCES[Math.min(attempt, IMAGE_SOURCES.length - 1)];
+  const uri =
+    source === 'thumb'
+      ? mediaThumbUrl(media.id, token)
+      : `${mediaFileUrl(media.url, token)}${source === 'full-retry' ? '&retry=1' : ''}`;
+  const failed = attempt >= IMAGE_SOURCES.length;
+
+  return (
+    <Pressable onPress={onOpen} accessibilityLabel="View photo">
+      <View style={[styles.messageImage, { aspectRatio }]}>
+        {!failed ? (
+          <Image
+            key={uri}
+            source={{ uri }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            onLoad={e => {
+              const { width, height } = e.nativeEvent.source;
+              if (width && height) {
+                setAspectRatio(width / height);
+              }
+              setLoaded(true);
+            }}
+            onError={() => setAttempt(a => a + 1)}
+          />
+        ) : null}
+        {!loaded && !failed ? (
+          <View style={styles.pendingOverlay}>
+            <ActivityIndicator color="#8a94a6" />
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+// Full-screen photo with a spinner until the full-resolution image arrives.
+function ViewerImage({ uri }: { uri: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      {!loaded ? <ActivityIndicator color="#fff" size="large" style={styles.viewerSpinner} /> : null}
+      <Image
+        source={{ uri }}
+        style={styles.viewerImage}
+        resizeMode="contain"
+        onLoad={() => setLoaded(true)}
+      />
+    </>
+  );
+}
+
 export default function ChatScreen(_props: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [hasPermission, setHasPermission] = useState(false);
   const [backupEnabled, setBackupEnabled] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<PendingImage | null>(null);
@@ -136,7 +206,6 @@ export default function ChatScreen(_props: Props) {
       if (cancelled) {
         return;
       }
-      setHasPermission(granted);
       setBackupEnabled(enabled);
       if (granted && enabled && isMediaSyncAvailable()) {
         await startMediaSync(API_BASE_URL, session.token);
@@ -181,32 +250,12 @@ export default function ChatScreen(_props: Props) {
     async (wantBackup: boolean): Promise<PermissionResult> => {
       const result = (await hasMediaPermissions()) ? 'granted' : await requestMediaPermissions();
       const granted = result === 'granted';
-      setHasPermission(granted);
       if (granted && wantBackup && token && isMediaSyncAvailable()) {
         await startMediaSync(API_BASE_URL, token);
       }
       return result;
     },
     [token],
-  );
-
-  const toggleBackup = useCallback(
-    async (on: boolean) => {
-      setBackupEnabled(on);
-      await saveBackupEnabled(on);
-      if (!on) {
-        await stopMediaSync();
-        return;
-      }
-      const result = await ensurePermissionAndSync(true);
-      if (result !== 'granted') {
-        alertPermissionNeeded(
-          result,
-          'Allow access to photos and videos.',
-        );
-      }
-    },
-    [ensurePermissionAndSync],
   );
 
   const sendImage = useCallback(async () => {
@@ -246,25 +295,16 @@ export default function ChatScreen(_props: Props) {
     ({ item }: { item: ChatMessage }) => {
       const mine = item.userId === myUserId;
       const media = item.media;
-      const uri = media && token ? mediaFileUrl(media.url, token) : null;
       return (
         <View style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
           <View style={[styles.bubble, mine && styles.bubbleMine]}>
             {!mine && <Text style={styles.senderName}>{item.name}</Text>}
-            {media && uri ? (
-              <Pressable onPress={() => setViewerUri(uri)} accessibilityLabel="View photo">
-                <Image
-                  source={{ uri }}
-                  style={[
-                    styles.messageImage,
-                    {
-                      aspectRatio:
-                        media.width && media.height ? media.width / media.height : 4 / 3,
-                    },
-                  ]}
-                  resizeMode="cover"
-                />
-              </Pressable>
+            {media && token ? (
+              <MessageImage
+                media={media}
+                token={token}
+                onOpen={() => setViewerUri(mediaFileUrl(media.url, token))}
+              />
             ) : null}
             {item.text ? <Text style={styles.messageText}>{item.text}</Text> : null}
           </View>
@@ -292,7 +332,6 @@ export default function ChatScreen(_props: Props) {
     </View>
   ) : null;
 
-  const backupOn = backupEnabled && hasPermission;
 
   return (
     <KeyboardAvoidingView
@@ -350,7 +389,7 @@ export default function ChatScreen(_props: Props) {
       >
         <Pressable style={styles.viewer} onPress={() => setViewerUri(null)}>
           {viewerUri ? (
-            <Image source={{ uri: viewerUri }} style={styles.viewerImage} resizeMode="contain" />
+            <ViewerImage key={viewerUri} uri={viewerUri} />
           ) : null}
           <Pressable
             style={styles.viewerClose}
@@ -376,8 +415,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1c2534',
   },
   headerTitle: { color: '#f5f7fa', fontSize: 18, fontWeight: '700' },
-  backupRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  backupTitle: { flex: 1, color: '#f5f7fa', fontSize: 13, fontWeight: '600' },
   list: { padding: 12, flexGrow: 1, justifyContent: 'flex-end' },
   bubbleRow: { flexDirection: 'row', marginVertical: 4 },
   bubbleRowMine: { justifyContent: 'flex-end' },
@@ -391,7 +428,13 @@ const styles = StyleSheet.create({
   bubbleMine: { backgroundColor: '#3b82f6' },
   senderName: { color: '#8fb4ff', fontSize: 11, fontWeight: '600', marginBottom: 2 },
   messageText: { color: '#f5f7fa', fontSize: 15 },
-  messageImage: { width: 220, borderRadius: 10, marginVertical: 2, backgroundColor: '#0b1220' },
+  messageImage: {
+    width: 220,
+    borderRadius: 10,
+    marginVertical: 2,
+    backgroundColor: '#0b1220',
+    overflow: 'hidden',
+  },
   pendingImage: { aspectRatio: 4 / 3, opacity: 0.6 },
   pendingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -405,6 +448,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   viewerImage: { width: '100%', height: '100%' },
+  viewerSpinner: { position: 'absolute' },
   viewerClose: {
     position: 'absolute',
     top: Platform.OS === 'android' ? 40 : 56,
