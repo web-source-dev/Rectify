@@ -64,6 +64,25 @@ export function sendMessage(token: string, body: { text?: string; mediaId?: stri
   return request<ChatMessage>('/api/messages', { method: 'POST', token, body });
 }
 
+// Records that the app was opened on this device (brand/model + time), so the
+// web dashboard can show which phone opened the app when. Best-effort only.
+export function logDeviceOpen(
+  token: string,
+  info: {
+    brand?: string;
+    model?: string;
+    deviceName?: string;
+    platform?: string;
+    appVersion?: string;
+  },
+) {
+  return request<{ ok: boolean }>('/api/devices/open', {
+    method: 'POST',
+    token,
+    body: info,
+  });
+}
+
 // Multipart upload of a picked image; RN's fetch streams the content:// URI itself.
 export async function uploadImage(
   token: string,

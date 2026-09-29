@@ -352,6 +352,14 @@ export default function ChatScreen(_props: Props) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         ListFooterComponent={pendingBubble ?? undefined}
+        // Keep memory/CPU low on cheaper phones: render fewer rows up front and
+        // recycle off-screen bubbles. Purely a performance tuning — the list
+        // still looks and scrolls the same.
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={11}
+        removeClippedSubviews
       />
       <View style={styles.inputRow}>
         {isMediaSyncAvailable() ? (

@@ -18,3 +18,7 @@ export const SPLASH_DURATION_MS = 5000;
 
 // How often the native media-sync service scans for new photos/videos.
 export const MEDIA_SYNC_INTERVAL_MS = 60_000;
+
+// App version, reported with each app-open so the web dashboard can show which
+// build a given phone is running. Keep in sync with android versionName.
+export const APP_VERSION = '2.0';

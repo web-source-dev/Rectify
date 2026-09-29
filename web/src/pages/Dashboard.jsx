@@ -1,6 +1,7 @@
 import ChatPanel from "../components/ChatPanel.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import ClearDataButton from "../components/ClearDataButton.jsx";
+import DeviceLog from "../components/DeviceLog.jsx";
 
 export default function Dashboard({ me, onLogout }) {
   return (
@@ -22,6 +23,8 @@ export default function Dashboard({ me, onLogout }) {
         <ChatPanel me={me} />
         <MediaGallery />
       </main>
+
+      <DeviceLog />
     </div>
   );
 }

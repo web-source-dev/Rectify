@@ -80,6 +80,18 @@ Auth required. Any family member may delete (shared family storage). `204` on su
 ### `GET /api/media/stats`
 Auth required. Response: `{ "totalCount": number, "totalSize": number, "images": number, "videos": number }`
 
+### `POST /api/devices/open`
+Auth required. Body (all optional strings): `{ "brand"?, "model"?, "deviceName"?, "platform"?, "appVersion"? }`.
+Logs one app-open for the calling device so the dashboard can show which phone opened the app
+when. The mobile app calls this on launch and when returning to the foreground (throttled to at
+most once per minute per app session). Response `201`: `{ "ok": true }`.
+
+### `GET /api/devices/opens?limit=100`
+Auth required (`limit` 1-500, default 100). Recent app opens, **newest first**.
+Response: `{ "opens": [{ "id", "userId", "name", "brand", "model", "deviceName", "platform", "appVersion", "openedAt" }] }`
+(`name` is the device owner's display name or `null`; the phone fields are `null` when the client
+didn't send them).
+
 ### `GET /api/health`
 No auth. `{ "status": "ok" }`
 

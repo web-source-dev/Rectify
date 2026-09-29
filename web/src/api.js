@@ -95,6 +95,10 @@ export const api = {
 
   mediaStats: () => request("/api/media/stats"),
 
+  // Recent app opens (which phone opened the app, and when), newest first.
+  listDeviceOpens: (limit = 100) =>
+    request(`/api/devices/opens?limit=${encodeURIComponent(limit)}`),
+
   wipeAll: () => request("/api/admin/wipe", { method: "POST", body: { confirm: "DELETE" } }),
 
   mediaFileUrl: (id) => {

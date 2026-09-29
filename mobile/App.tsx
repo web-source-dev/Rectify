@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
 import { AppState, StatusBar } from 'react-native';
 import { isMediaSyncAvailable, pauseMediaSync, resumeMediaSync } from './src/native/MediaSync';
+import { getDeviceInfo } from './src/native/deviceInfo';
+import { logDeviceOpen } from './src/api';
+import { loadSession } from './src/storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/types';
@@ -26,6 +29,33 @@ export default function App() {
     };
     syncWithAppState(AppState.currentState);
     const sub = AppState.addEventListener('change', syncWithAppState);
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    // Report each app open (device + time) to the backend, throttled so a quick
+    // background/foreground bounce doesn't spam rows. Only devices that already
+    // have a session (completed the PIN once) are logged. Best-effort — never
+    // blocks or surfaces errors to the user.
+    let lastReportedAt = 0;
+    const report = async () => {
+      const now = Date.now();
+      if (now - lastReportedAt < 60_000) {
+        return;
+      }
+      const session = await loadSession();
+      if (!session?.token) {
+        return;
+      }
+      lastReportedAt = now;
+      logDeviceOpen(session.token, getDeviceInfo()).catch(() => {});
+    };
+    report();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        report();
+      }
+    });
     return () => sub.remove();
   }, []);
 

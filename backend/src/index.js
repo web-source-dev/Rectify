@@ -26,6 +26,7 @@ app.use('/api', require('./routes/auth'));
 app.use('/api', require('./routes/users'));
 app.use('/api', require('./routes/messages'));
 app.use('/api', require('./routes/media'));
+app.use('/api', require('./routes/devices'));
 app.use('/api', require('./routes/admin'));
 
 app.use((req, res) => {

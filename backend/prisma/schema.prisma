@@ -8,11 +8,28 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  name      String?
-  createdAt DateTime  @default(now())
-  messages  Message[]
-  media     Media[]
+  id          String       @id @default(cuid())
+  name        String?
+  createdAt   DateTime     @default(now())
+  messages    Message[]
+  media       Media[]
+  deviceOpens DeviceOpen[]
+}
+
+// One row per time the app is opened on a device (logged once the device has a
+// session/token). Lets the web dashboard show which phone opened the app when.
+model DeviceOpen {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  brand      String?
+  model      String?
+  deviceName String?
+  platform   String?
+  appVersion String?
+  openedAt   DateTime @default(now())
+
+  @@index([openedAt])
 }
 
 model Message {
