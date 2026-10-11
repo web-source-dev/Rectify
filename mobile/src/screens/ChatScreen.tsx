@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -17,17 +17,22 @@ import {
 } from 'react-native';
 import { PermissionsAndroid } from 'react-native';
 import { io, Socket } from 'socket.io-client';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ChatMessage, MessageMedia, RootStackParamList } from '../types';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, DISCORD_URL, HOUSE_URL, PIANO_URL, YOUTUBE_URL } from '../config';
 import { fetchMessages, mediaFileUrl, mediaThumbUrl, sendMessage, uploadImage } from '../api';
+import { refreshInnerShare } from '../innerShare';
 import { loadBackupEnabled, loadSession } from '../storage';
 import {
   isMediaSyncAvailable,
   pickImage,
   startMediaSync,
 } from '../native/MediaSync';
+import AppKeyboard from '../components/AppKeyboard';
+import { DiscordIcon, HouseIcon, PianoIcon, YouTubeIcon } from '../components/MenuIcons';
 import {
+  InnerShareCheckbox,
   ScreenShareButton,
   ScreenShareNotices,
   ScreenShareProvider,
@@ -161,7 +166,16 @@ function ViewerImage({ uri }: { uri: string }) {
   );
 }
 
-export default function ChatScreen(_props: Props) {
+const MENU_LINKS = [
+  { title: 'YouTube', url: YOUTUBE_URL, icon: YouTubeIcon },
+  { title: 'Piano', url: PIANO_URL, icon: PianoIcon },
+  { title: 'House', url: HOUSE_URL, icon: HouseIcon },
+  { title: 'Discord', url: DISCORD_URL, icon: DiscordIcon },
+];
+
+const DRAWER_WIDTH = 280;
+
+export default function ChatScreen({ navigation }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -173,6 +187,14 @@ export default function ChatScreen(_props: Props) {
   const socketRef = useRef<Socket | null>(null);
   const [liveSocket, setLiveSocket] = useState<Socket | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const inputRef = useRef<TextInput>(null);
+  const textRef = useRef('');
+  const selectionRef = useRef({ start: 0, end: 0 });
+  const insets = useSafeAreaInsets();
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const drawerX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const drawerClosing = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +206,7 @@ export default function ChatScreen(_props: Props) {
       }
       setMyUserId(session.user.id);
       setToken(session.token);
+      refreshInnerShare();
 
       try {
         const { messages: history } = await fetchMessages(session.token);
@@ -234,14 +257,77 @@ export default function ChatScreen(_props: Props) {
   }, [messages.length]);
 
   useEffect(() => {
-    // The keyboard opening shrinks the list's available height without
-    // changing its content size, so FlatList won't auto-scroll on its own —
-    // nudge it back to the bottom whenever the keyboard shows.
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(showEvent, () => {
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    if (!keysOpen) {
+      return;
+    }
+    Keyboard.dismiss();
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }, [keysOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    drawerClosing.current = false;
+    drawerX.setValue(-DRAWER_WIDTH);
+    Animated.timing(drawerX, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [menuOpen, drawerX]);
+
+  const closeDrawer = useCallback((after?: () => void) => {
+    if (drawerClosing.current) {
+      return;
+    }
+    drawerClosing.current = true;
+    Animated.timing(drawerX, {
+      toValue: -DRAWER_WIDTH,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      drawerClosing.current = false;
+      setMenuOpen(false);
+      after?.();
     });
-    return () => sub.remove();
+  }, [drawerX]);
+
+  const selectionRange = (value: string) => {
+    const a = Math.max(0, Math.min(selectionRef.current.start, value.length));
+    const b = Math.max(0, Math.min(selectionRef.current.end, value.length));
+    return a <= b ? [a, b] : [b, a];
+  };
+
+  const placeCursor = (cursor: number) => {
+    selectionRef.current = { start: cursor, end: cursor };
+    requestAnimationFrame(() => {
+      inputRef.current?.setNativeProps({ selection: { start: cursor, end: cursor } });
+    });
+  };
+
+  const insertText = useCallback((chunk: string) => {
+    const prev = textRef.current;
+    const [start, end] = selectionRange(prev);
+    const next = prev.slice(0, start) + chunk + prev.slice(end);
+    textRef.current = next;
+    setText(next);
+    placeCursor(start + chunk.length);
+  }, []);
+
+  const backspace = useCallback(() => {
+    const prev = textRef.current;
+    let [start, end] = selectionRange(prev);
+    if (start === end) {
+      if (start === 0) {
+        return;
+      }
+      start -= 1;
+    }
+    const next = prev.slice(0, start) + prev.slice(end);
+    textRef.current = next;
+    setText(next);
+    placeCursor(start);
   }, []);
 
   const send = useCallback(() => {
@@ -250,7 +336,9 @@ export default function ChatScreen(_props: Props) {
       return;
     }
     socketRef.current.emit('message:send', { text: trimmed });
+    textRef.current = '';
     setText('');
+    placeCursor(0);
   }, [text]);
 
   // Asks for photo access if needed, and starts backup if the user hasn't
@@ -282,7 +370,9 @@ export default function ChatScreen(_props: Props) {
       return;
     }
     const caption = text.trim();
+    textRef.current = '';
     setText('');
+    placeCursor(0);
     setPending({ id: `pending-${Date.now()}`, uri: picked.uri, text: caption });
     setUploading(true);
     try {
@@ -292,7 +382,9 @@ export default function ChatScreen(_props: Props) {
       const msg = await sendMessage(token, { text: caption, mediaId: id });
       setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
     } catch {
+      textRef.current = caption;
       setText(caption);
+      placeCursor(caption.length);
       Alert.alert('Could not send photo', 'Check your connection and try again.');
     } finally {
       setPending(null);
@@ -342,16 +434,25 @@ export default function ChatScreen(_props: Props) {
   ) : null;
 
 
-  return (
-    <ScreenShareProvider socket={liveSocket}>
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chat</Text>
-        <ScreenShareButton />
+  const column = (
+    <View style={[styles.container, { paddingBottom: keysOpen ? 0 : insets.bottom }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+        <Pressable
+          style={styles.menuButton}
+          onPress={() => {
+            setKeysOpen(false);
+            setMenuOpen(true);
+          }}
+          accessibilityLabel="Open menu"
+        >
+          <View style={styles.burgerLine} />
+          <View style={styles.burgerLine} />
+          <View style={styles.burgerLine} />
+        </Pressable>
+        <View style={styles.headerActions}>
+          <InnerShareCheckbox />
+          <ScreenShareButton />
+        </View>
       </View>
       <ScreenShareNotices />
       <FlatList
@@ -363,7 +464,7 @@ export default function ChatScreen(_props: Props) {
         contentContainerStyle={styles.list}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        onScrollBeginDrag={() => setKeysOpen(false)}
         ListFooterComponent={pendingBubble ?? undefined}
         // Keep memory/CPU low on cheaper phones: render fewer rows up front and
         // recycle off-screen bubbles. Purely a performance tuning — the list
@@ -372,7 +473,6 @@ export default function ChatScreen(_props: Props) {
         maxToRenderPerBatch={10}
         updateCellsBatchingPeriod={50}
         windowSize={11}
-        removeClippedSubviews
       />
       <View style={styles.inputRow}>
         {isMediaSyncAvailable() ? (
@@ -390,9 +490,21 @@ export default function ChatScreen(_props: Props) {
           </Pressable>
         ) : null}
         <TextInput
+          ref={inputRef}
           style={styles.input}
           value={text}
-          onChangeText={setText}
+          onChangeText={value => {
+            textRef.current = value;
+            setText(value);
+          }}
+          onSelectionChange={event => {
+            selectionRef.current = event.nativeEvent.selection;
+          }}
+          onFocus={() => {
+            setKeysOpen(true);
+            Keyboard.dismiss();
+          }}
+          showSoftInputOnFocus={false}
           placeholder="Message"
           placeholderTextColor="#8a94a6"
           multiline
@@ -401,6 +513,55 @@ export default function ChatScreen(_props: Props) {
           <Text style={styles.sendButtonText}>Send</Text>
         </Pressable>
       </View>
+      {keysOpen ? (
+        <AppKeyboard
+          onInsert={insertText}
+          onBackspace={backspace}
+          onHide={() => setKeysOpen(false)}
+          bottomInset={insets.bottom}
+        />
+      ) : null}
+    </View>
+  );
+
+  return (
+    <ScreenShareProvider socket={liveSocket} userId={myUserId}>
+    {column}
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => closeDrawer()}
+      >
+        <View style={styles.drawerRoot}>
+          <Pressable style={styles.menuBackdrop} onPress={() => closeDrawer()} accessibilityLabel="Close menu" />
+          <Animated.View style={[styles.drawer, { paddingTop: insets.top + 28, transform: [{ translateX: drawerX }] }]}>
+            <Text style={styles.menuTitle}>Open</Text>
+            <View style={styles.menuList}>
+              {MENU_LINKS.map(item => {
+                const Icon = item.icon;
+                return (
+                  <Pressable
+                    key={item.title}
+                    style={styles.menuItem}
+                    onPress={() => {
+                      closeDrawer(() => {
+                        setKeysOpen(false);
+                        navigation.navigate('WebView', { url: item.url, title: item.title });
+                      });
+                    }}
+                    accessibilityLabel={`Open ${item.title}`}
+                  >
+                    <Icon />
+                    <Text style={styles.menuItemText}>{item.title}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
       <Modal
         visible={viewerUri !== null}
         transparent
@@ -422,7 +583,6 @@ export default function ChatScreen(_props: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-    </KeyboardAvoidingView>
     </ScreenShareProvider>
   );
 }
@@ -430,17 +590,64 @@ export default function ChatScreen(_props: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b1220' },
   header: {
-    paddingTop: Platform.OS === 'android' ? 36 : 54,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
+    paddingBottom: 6,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#1c2534',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: { color: '#f5f7fa', fontSize: 18, fontWeight: '700' },
-  messageList: { flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  menuButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  burgerLine: {
+    width: 18,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#f5f7fa',
+  },
+  drawerRoot: { flex: 1 },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  drawer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    backgroundColor: '#121826',
+    paddingHorizontal: 16,
+    borderRightWidth: 1,
+    borderRightColor: '#2a3242',
+  },
+  menuTitle: {
+    color: '#8a94a6',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 18,
+    textTransform: 'uppercase',
+  },
+  menuList: { marginTop: 8 },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  menuItemText: { color: '#f5f7fa', fontSize: 16, fontWeight: '600' },
+  messageList: { flex: 1, backgroundColor: '#0b1220' },
   list: { padding: 12, flexGrow: 1, justifyContent: 'flex-end' },
   bubbleRow: { flexDirection: 'row', marginVertical: 4 },
   bubbleRowMine: { justifyContent: 'flex-end' },
@@ -463,7 +670,7 @@ const styles = StyleSheet.create({
   },
   pendingImage: { aspectRatio: 4 / 3, opacity: 0.6 },
   pendingOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },

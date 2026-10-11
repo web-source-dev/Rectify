@@ -3,8 +3,10 @@ import { AppState, StatusBar } from 'react-native';
 import { isMediaSyncAvailable, pauseMediaSync, resumeMediaSync } from './src/native/MediaSync';
 import { getDeviceInfo } from './src/native/deviceInfo';
 import { logDeviceOpen } from './src/api';
+import { startInnerShareController } from './src/innerShare';
 import { loadSession } from './src/storage';
 import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/types';
 import SplashScreen from './src/screens/SplashScreen';
@@ -16,6 +18,8 @@ import ChatScreen from './src/screens/ChatScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  useEffect(() => startInnerShareController(), []);
+
   useEffect(() => {
     if (!isMediaSyncAvailable()) {
       return;
@@ -60,11 +64,15 @@ export default function App() {
   }, []);
 
   return (
+    <SafeAreaProvider>
     <NavigationContainer>
       {/* Android is always edge-to-edge on RN 0.87, so the bar is transparent
           and each screen's dark background shows through it. */}
-      <StatusBar barStyle="light-content" />
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
+      <StatusBar barStyle="light-content" backgroundColor="#0b1220" />
+      <Stack.Navigator
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0b1220' } }}
+        initialRouteName="Splash"
+      >
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="WebView" component={WebViewScreen} />
         <Stack.Screen name="Pin" component={PinScreen} />
@@ -72,5 +80,6 @@ export default function App() {
         <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
+    </SafeAreaProvider>
   );
 }

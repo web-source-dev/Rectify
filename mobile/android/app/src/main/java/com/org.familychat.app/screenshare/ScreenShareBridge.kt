@@ -33,12 +33,12 @@ object ScreenShareBridge {
     failed?.invoke()
   }
 
-  fun emitFrame(jpeg: ByteArray) {
+  fun emitFrame(jpeg: ByteArray, eventName: String = "screenShareFrame") {
     val ctx = reactContext ?: return
     val payload = Arguments.createMap().apply {
       putString("frame", Base64.encodeToString(jpeg, Base64.NO_WRAP))
     }
-    emit(ctx, "screenShareFrame", payload)
+    emit(ctx, eventName, payload)
   }
 
   fun emitStopped() {

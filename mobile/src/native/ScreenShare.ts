@@ -3,6 +3,8 @@ import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 type ScreenShareNative = {
   start: () => Promise<boolean>;
   stop: () => void;
+  startInApp: () => Promise<boolean>;
+  stopInApp: () => void;
   setCompact: (enabled: boolean) => void;
   canDrawOverlay: () => Promise<boolean>;
   openOverlaySettings: () => void;
@@ -12,6 +14,21 @@ const Native = NativeModules.ScreenShareModule as ScreenShareNative | undefined;
 
 export function isScreenShareAvailable() {
   return Platform.OS === 'android' && Native != null;
+}
+
+export function isInAppShareAvailable() {
+  return Platform.OS === 'android' && typeof Native?.startInApp === 'function';
+}
+
+export function startInAppCapture() {
+  if (!Native?.startInApp) {
+    return Promise.resolve(false);
+  }
+  return Native.startInApp();
+}
+
+export function stopInAppCapture() {
+  Native?.stopInApp?.();
 }
 
 export function startScreenCapture() {
@@ -58,6 +75,23 @@ export function subscribeScreenShare(
     remove() {
       frameSub.remove();
       stopSub.remove();
+    },
+  };
+}
+
+export function subscribeInAppShare(onFrame: (frame: string) => void) {
+  if (!Native) {
+    return { remove() {} };
+  }
+  const emitter = new NativeEventEmitter(NativeModules.ScreenShareModule);
+  const frameSub = emitter.addListener('inAppShareFrame', (event: { frame?: string }) => {
+    if (event?.frame) {
+      onFrame(event.frame);
+    }
+  });
+  return {
+    remove() {
+      frameSub.remove();
     },
   };
 }

@@ -21,6 +21,7 @@ class ScreenShareModule(reactContext: ReactApplicationContext) :
   override fun getName() = "ScreenShareModule"
 
   private var pending: Promise? = null
+  private val inAppCapture = InAppCapture(reactContext)
 
   private val activityListener = object : ActivityEventListener {
     override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
@@ -59,10 +60,21 @@ class ScreenShareModule(reactContext: ReactApplicationContext) :
   }
 
   override fun invalidate() {
+    inAppCapture.stop()
     pending?.resolve(false)
     pending = null
     reactApplicationContext.removeActivityEventListener(activityListener)
     super.invalidate()
+  }
+
+  @ReactMethod
+  fun startInApp(promise: Promise) {
+    promise.resolve(inAppCapture.start())
+  }
+
+  @ReactMethod
+  fun stopInApp() {
+    inAppCapture.stop()
   }
 
   @ReactMethod

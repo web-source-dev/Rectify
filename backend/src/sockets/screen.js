@@ -13,12 +13,13 @@ function validShareId(id) {
   return typeof id === 'string' && SHARE_ID.test(id);
 }
 
-function serialize(share, forSocketId) {
+function serialize(share, forUserId) {
   return {
     shareId: share.shareId,
     userId: share.userId,
     name: share.name,
-    self: share.socketId === forSocketId,
+    scope: share.scope === 'app' ? 'app' : 'device',
+    self: share.userId === forUserId,
   };
 }
 
@@ -31,7 +32,7 @@ function emitViewerCount(io, share) {
 
 function sendShareList(socket) {
   socket.emit('screen:list', {
-    shares: [...shares.values()].map((share) => serialize(share, socket.id)),
+    shares: [...shares.values()].map((share) => serialize(share, socket.userId)),
   });
 }
 
@@ -77,15 +78,20 @@ function bindScreenShare(io, socket) {
         shareId,
         userId: socket.userId,
         name: (user && user.name) || 'Someone',
+        scope: payload.scope === 'app' ? 'app' : 'device',
         socketId: socket.id,
         watchers: new Set(),
         lastFrameAt: 0,
       };
       shares.set(shareId, share);
 
-      const announcement = serialize(share, socket.id);
-      socket.emit('screen:available', announcement);
-      socket.broadcast.emit('screen:available', { ...announcement, self: false });
+      const announcement = serialize(share, socket.userId);
+      for (const other of io.sockets.sockets.values()) {
+        other.emit('screen:available', {
+          ...announcement,
+          self: other.userId === share.userId,
+        });
+      }
       socket.emit('screen:viewers', { shareId, count: 0 });
       if (typeof ack === 'function') ack({ ok: true });
     } catch (err) {

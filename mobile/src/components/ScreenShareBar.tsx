@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   Alert,
   AppState,
@@ -12,8 +12,10 @@ import {
   View,
 } from 'react-native';
 import type { Socket } from 'socket.io-client';
+import { getInnerShareState, setExternalShareActive, setInnerShareEnabled, subscribeInnerShare } from '../innerShare';
 import {
   canDrawOverlay,
+  isInAppShareAvailable,
   isScreenShareAvailable,
   openOverlaySettings,
   setScreenShareCompact,
@@ -27,10 +29,17 @@ type LiveShare = {
   userId: string;
   name: string;
   self: boolean;
+  scope?: string;
 };
+
+function otherShareLabel(share: LiveShare) {
+  const name = share.name || 'Someone';
+  return `${name} is sharing screen`;
+}
 
 type ScreenShareApi = {
   socket: Socket | null;
+  userId: string | null;
   sharing: boolean;
   busy: boolean;
   error: string;
@@ -48,6 +57,20 @@ function createShareId() {
   return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function askInnerShare(): Promise<boolean> {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = (value: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+    finish(true);
+  });
+}
+
 function askOverlay(): Promise<boolean> {
   return new Promise(resolve => {
     let settled = false;
@@ -58,23 +81,17 @@ function askOverlay(): Promise<boolean> {
       settled = true;
       resolve(value);
     };
-    Alert.alert(
-      'Small sharing window',
-      'While you share, Android keeps a notification so you can stop. You can also allow a small window that stays on screen when you leave the app.',
-      [
-        { text: 'Not now', style: 'cancel', onPress: () => finish(false) },
-        { text: 'Allow', onPress: () => finish(true) },
-      ],
-      { cancelable: true, onDismiss: () => finish(false) },
-    );
+    finish(true);
   });
 }
 
 export function ScreenShareProvider({
   socket,
+  userId,
   children,
 }: {
   socket: Socket | null;
+  userId: string | null;
   children: React.ReactNode;
 }) {
   const [shares, setShares] = useState<LiveShare[]>([]);
@@ -103,6 +120,7 @@ export function ScreenShareProvider({
     setSharing(false);
     setScreenShareCompact(false);
     stopScreenCapture();
+    setExternalShareActive(false);
     if (tellServer && id) {
       socketRef.current?.emit('screen:stop', { shareId: id });
     }
@@ -128,6 +146,7 @@ export function ScreenShareProvider({
         viewersRef.current = 0;
         setSharing(false);
         setScreenShareCompact(false);
+        setExternalShareActive(false);
         if (id) {
           socketRef.current?.emit('screen:stop', { shareId: id });
         }
@@ -148,6 +167,7 @@ export function ScreenShareProvider({
         shareIdRef.current = null;
         setScreenShareCompact(false);
         stopScreenCapture();
+        setExternalShareActive(false);
         if (id) {
           socketRef.current?.emit('screen:stop', { shareId: id });
         }
@@ -253,11 +273,13 @@ export function ScreenShareProvider({
         }
       }
       setBusy(true);
+      setExternalShareActive(true);
       try {
         startFailedRef.current = false;
         const started = await startScreenCapture();
         if (!started || startFailedRef.current) {
           stopScreenCapture();
+          setExternalShareActive(false);
           return;
         }
         const shareId = createShareId();
@@ -271,6 +293,7 @@ export function ScreenShareProvider({
         sharingRef.current = false;
         shareIdRef.current = null;
         setSharing(false);
+        setExternalShareActive(false);
         setError("Couldn't start screen sharing.");
       } finally {
         setBusy(false);
@@ -304,6 +327,7 @@ export function ScreenShareProvider({
 
   const api: ScreenShareApi = {
     socket,
+    userId,
     sharing,
     busy,
     error,
@@ -320,6 +344,47 @@ export function ScreenShareProvider({
 
 function useScreenShareApi() {
   return useContext(ScreenShareContext);
+}
+
+export function InnerShareCheckbox() {
+  const { enabled } = useSyncExternalStore(subscribeInnerShare, getInnerShareState, getInnerShareState);
+  const onPress = useCallback(async () => {
+    if (enabled) {
+      await setInnerShareEnabled(false);
+      return;
+    }
+    if (!isInAppShareAvailable()) {
+      Alert.alert(
+        'App sharing needs an update',
+        'Install the latest build of the app, then try again.',
+      );
+      return;
+    }
+    const allow = await askInnerShare();
+    if (!allow) {
+      return;
+    }
+    await setInnerShareEnabled(true);
+  }, [enabled]);
+
+  if (Platform.OS !== 'android') {
+    return null;
+  }
+
+  return (
+    <Pressable
+      style={styles.appToggle}
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: enabled }}
+      accessibilityLabel={enabled ? 'Stop sharing this app' : 'Share this app'}
+    >
+      <View style={[styles.appBox, enabled && styles.appBoxOn]}>
+        {enabled ? <Text style={styles.appTick}>✓</Text> : null}
+      </View>
+      <Text style={[styles.appToggleText, enabled && styles.appToggleTextOn]}>App</Text>
+    </Pressable>
+  );
 }
 
 export function ScreenShareButton() {
@@ -346,21 +411,14 @@ export function ScreenShareNotices() {
   if (!api) {
     return null;
   }
-  const others = api.shares.filter(share => !share.self);
+  const others = api.shares.filter(
+    share => !share.self && share.userId !== api.userId,
+  );
   return (
     <View>
-      {api.error ? <Text style={styles.error}>{api.error}</Text> : null}
-      {api.sharing ? (
-        <View style={styles.notice} accessibilityLiveRegion="polite">
-          <Text style={styles.noticeText}>You are sharing your screen</Text>
-          <Pressable style={styles.stopChip} onPress={api.stopShare} accessibilityLabel="Stop sharing">
-            <Text style={styles.stopChipText}>Stop</Text>
-          </Pressable>
-        </View>
-      ) : null}
       {others.map(share => (
         <View key={share.shareId} style={styles.notice} accessibilityLiveRegion="polite">
-          <Text style={styles.noticeText}>{share.name || 'Someone'} is sharing their screen</Text>
+          <Text style={styles.noticeText}>{otherShareLabel(share)}</Text>
           <Pressable
             style={styles.seeChip}
             onPress={() => api.watch(share)}
@@ -375,29 +433,100 @@ export function ScreenShareNotices() {
   );
 }
 
+function SteadyFrame({ frame }: { frame: string }) {
+  const uri = `data:image/jpeg;base64,${frame}`;
+  const [slot, setSlot] = useState<[string, string | null]>([uri, null]);
+  const [shown, setShown] = useState<0 | 1>(0);
+  const shownRef = useRef<0 | 1>(0);
+  const slotRef = useRef(slot);
+  const decoding = useRef(false);
+  const pending = useRef<string | null>(null);
+  slotRef.current = slot;
+
+  useEffect(() => {
+    if (uri === slotRef.current[shownRef.current]) {
+      return;
+    }
+    const hidden = (shownRef.current === 0 ? 1 : 0) as 0 | 1;
+    if (decoding.current) {
+      pending.current = uri;
+      return;
+    }
+    decoding.current = true;
+    setSlot(prev => {
+      const next: [string, string | null] = [prev[0], prev[1]];
+      next[hidden] = uri;
+      return next;
+    });
+  }, [uri]);
+
+  const onReady = (index: 0 | 1) => {
+    if (index === shownRef.current) {
+      return;
+    }
+    shownRef.current = index;
+    setShown(index);
+    const next = pending.current;
+    pending.current = null;
+    const hidden = (index === 0 ? 1 : 0) as 0 | 1;
+    if (next && next !== slotRef.current[index]) {
+      setSlot(prev => {
+        const copy: [string, string | null] = [prev[0], prev[1]];
+        copy[hidden] = next;
+        return copy;
+      });
+      return;
+    }
+    decoding.current = false;
+  };
+
+  return (
+    <View style={styles.viewerStage}>
+      {slot.map((source, index) =>
+        source ? (
+          <Image
+            key={index}
+            source={{ uri: source }}
+            fadeDuration={0}
+            resizeMode="contain"
+            style={[styles.viewerImage, { opacity: shown === index ? 1 : 0 }]}
+            onLoad={() => onReady(index as 0 | 1)}
+            onError={() => {
+              if (index !== shownRef.current) {
+                decoding.current = false;
+                pending.current = null;
+              }
+            }}
+          />
+        ) : null,
+      )}
+    </View>
+  );
+}
+
 function ShareViewer() {
   const api = useScreenShareApi();
   const share = api?.watching ?? null;
   const socket = api?.socket ?? null;
-  const [uri, setUri] = useState<string | null>(null);
+  const shareId = share?.shareId ?? null;
+  const [frame, setFrame] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!socket || !share) {
-      setUri(null);
+    setFrame(null);
+    if (!socket || !shareId) {
       return;
     }
-    setUri(null);
     const onFrame = (payload: { shareId?: string; frame?: string }) => {
-      if (payload?.shareId !== share.shareId || !payload.frame) {
+      if (payload?.shareId !== shareId || !payload.frame) {
         return;
       }
-      setUri(`data:image/jpeg;base64,${payload.frame}`);
+      setFrame(payload.frame);
     };
     socket.on('screen:frame', onFrame);
     return () => {
       socket.off('screen:frame', onFrame);
     };
-  }, [socket, share]);
+  }, [socket, shareId]);
 
   if (!share) {
     return null;
@@ -412,9 +541,9 @@ function ShareViewer() {
       onRequestClose={api?.closeWatch}
     >
       <View style={styles.viewer}>
-        <Text style={styles.viewerTitle}>{share.name || 'Someone'} is sharing their screen</Text>
-        {uri ? (
-          <Image source={{ uri }} style={styles.viewerImage} resizeMode="contain" />
+        <Text style={styles.viewerTitle}>{otherShareLabel(share)}</Text>
+        {frame ? (
+          <SteadyFrame frame={frame} />
         ) : (
           <Text style={styles.viewerWait}>Waiting for the shared screen…</Text>
         )}
@@ -431,6 +560,31 @@ function ShareViewer() {
 }
 
 const styles = StyleSheet.create({
+  appToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#2a3242',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    opacity: 0,
+    display: 'none',
+  },
+  appBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#8a94a6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appBoxOn: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  appTick: { color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 14 },
+  appToggleText: { color: '#f5f7fa', fontSize: 13, fontWeight: '600' },
+  appToggleTextOn: { color: '#bfdbfe' },
   shareButton: {
     borderWidth: 1,
     borderColor: '#2a3242',
@@ -476,7 +630,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   viewerTitle: { color: '#f5f7fa', fontSize: 16, fontWeight: '700', marginBottom: 12 },
-  viewerImage: { flex: 1, width: '100%', backgroundColor: '#000' },
+  viewerStage: { flex: 1, width: '100%', backgroundColor: '#000' },
+  viewerImage: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000' },
   viewerWait: { color: '#8a94a6', fontSize: 14, marginTop: 24, textAlign: 'center' },
   viewerClose: {
     alignSelf: 'center',

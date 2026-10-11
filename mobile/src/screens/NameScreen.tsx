@@ -11,6 +11,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { setName as setNameApi } from '../api';
+import { refreshInnerShare } from '../innerShare';
 import { loadSession, saveSession } from '../storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Name'>;
@@ -32,6 +33,7 @@ export default function NameScreen({ navigation, route }: Props) {
       const user = await setNameApi(token, trimmed);
       const session = await loadSession();
       await saveSession({ token, user: session?.user ?? { id: userId, name: user.name } });
+      refreshInnerShare();
       navigation.reset({ index: 0, routes: [{ name: 'Chat' }] });
     } catch {
       setError('Could not save your name. Check your connection.');

@@ -27,7 +27,7 @@ export type AuthSession = {
 
 export type RootStackParamList = {
   Splash: undefined;
-  WebView: undefined;
+  WebView: { url?: string; title?: string } | undefined;
   Pin: undefined;
   Name: { token: string; userId: string };
   Chat: undefined;

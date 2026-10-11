@@ -11,6 +11,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { verifyPin, ApiError } from '../api';
+import { refreshInnerShare } from '../innerShare';
 import { loadSession, saveSession } from '../storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Pin'>;
@@ -30,6 +31,7 @@ export default function PinScreen({ navigation }: Props) {
       const existing = await loadSession();
       const { token, user } = await verifyPin(pin.trim(), existing?.token);
       await saveSession({ token, user });
+      refreshInnerShare();
       if (user.name) {
         navigation.reset({ index: 0, routes: [{ name: 'Chat' }] });
       } else {

@@ -163,7 +163,11 @@ export default function ChatPanel({ me }) {
         .filter((share) => !share.self)
         .map((share) => (
           <div key={share.shareId} style={screenShareStyles.notice}>
-            <span>{share.name || "Someone"} is sharing their screen</span>
+            <span>
+              {share.scope === "app"
+                ? `${share.name || "Someone"} is sharing this app`
+                : `${share.name || "Someone"} is sharing their screen`}
+            </span>
             <button type="button" className="btn" onClick={() => screen.watch(share)}>
               See it
             </button>
@@ -172,7 +176,11 @@ export default function ChatPanel({ me }) {
       {screen.watching ? (
         <div style={screenShareStyles.stage}>
           <div style={screenShareStyles.stageBar}>
-            <span>{screen.watching.name || "Someone"} is sharing their screen</span>
+            <span>
+              {screen.watching.scope === "app"
+                ? `${screen.watching.name || "Someone"} is sharing this app`
+                : `${screen.watching.name || "Someone"} is sharing their screen`}
+            </span>
             <button type="button" className="btn-ghost" onClick={screen.closeWatch}>
               Close
             </button>

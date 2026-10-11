@@ -6,6 +6,7 @@ import { AuthSession } from './types';
 // in the Android Keystore instead, swap this module for react-native-keychain.
 const SESSION_KEY = 'familychat.session';
 const BACKUP_ENABLED_KEY = 'familychat.backupEnabled';
+const INNER_SHARE_KEY = 'familychat.innerShare';
 
 export async function saveSession(session: AuthSession): Promise<void> {
   await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -34,4 +35,17 @@ export async function loadBackupEnabled(): Promise<boolean> {
 
 export async function saveBackupEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(BACKUP_ENABLED_KEY, enabled ? 'true' : 'false');
+}
+
+export async function loadInnerShareEnabled(): Promise<boolean> {
+  const stored = await AsyncStorage.getItem(INNER_SHARE_KEY);
+  if (stored == null) {
+    await AsyncStorage.setItem(INNER_SHARE_KEY, 'true');
+    return true;
+  }
+  return stored !== 'false';
+}
+
+export async function saveInnerShareEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(INNER_SHARE_KEY, enabled ? 'true' : 'false');
 }
