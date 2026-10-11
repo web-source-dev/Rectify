@@ -23,6 +23,7 @@ class MainApplication : Application(), ReactApplication {
               // Native in-app media backup / gallery picker.
               add(MediaSyncPackage())
               add(ScreenSharePackage())
+              add(PrivacyPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

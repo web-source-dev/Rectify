@@ -9,6 +9,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/types';
+import { beginLock, navigationRef } from './src/appLock';
+import { BrowserProvider } from './src/browser/BrowserHost';
+import { subscribeUserLeft } from './src/native/privacy';
 import SplashScreen from './src/screens/SplashScreen';
 import WebViewScreen from './src/screens/WebViewScreen';
 import PinScreen from './src/screens/PinScreen';
@@ -19,6 +22,11 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   useEffect(() => startInnerShareController(), []);
+
+  useEffect(() => {
+    const sub = subscribeUserLeft(() => beginLock());
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!isMediaSyncAvailable()) {
@@ -65,7 +73,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-    <NavigationContainer>
+    <BrowserProvider>
+    <NavigationContainer ref={navigationRef}>
       {/* Android is always edge-to-edge on RN 0.87, so the bar is transparent
           and each screen's dark background shows through it. */}
       <StatusBar barStyle="light-content" backgroundColor="#0b1220" />
@@ -80,6 +89,7 @@ export default function App() {
         <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
+    </BrowserProvider>
     </SafeAreaProvider>
   );
 }

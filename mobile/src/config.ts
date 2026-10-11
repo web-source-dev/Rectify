@@ -10,6 +10,7 @@ export const API_BASE_URL = 'http://192.168.1.14:4003';
 export const SITE_URL = 'https://kozanandihl.meb.k12.tr/';
 
 export const YOUTUBE_URL = 'https://www.youtube.com/';
+export const CHATGPT_URL = 'https://chatgpt.com/';
 export const PIANO_URL = 'https://piano.harmony4all.org/?c=mybot';
 export const HOUSE_URL =
   'https://piano.harmony4all.org/world.html?c=mybot&n=Anonymous&u=h1fdcfe6b879ad2fb89b3deeb';

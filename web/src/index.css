@@ -413,11 +413,356 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .media-tile-skeleton,
-  .viewer-spinner {
+  .viewer-spinner,
+  .inapp-progress > span {
     animation: none;
   }
   .media-tile-img,
   .viewer-full {
     transition: none;
   }
+}
+
+/* ---------- In-app browser ---------- */
+
+.browser-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 12px 6px 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.browser-open:hover {
+  background: color-mix(in srgb, var(--text) 6%, var(--surface));
+}
+
+.browser-open:focus-visible,
+.inapp-back:focus-visible,
+.inapp-new:focus-visible,
+.inapp-tab-main:focus-visible,
+.inapp-tab-close:focus-visible,
+.inapp-tool:focus-visible,
+.inapp-go:focus-visible,
+.inapp-clear:focus-visible,
+.inapp-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.browser-open-glyph,
+.inapp-glyph {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.browser-open-ring,
+.inapp-glyph-ring {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.browser-open-handle,
+.inapp-glyph-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+  height: 6px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+
+.inapp-glyph {
+  color: var(--accent);
+}
+
+.inapp-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.inapp-shell.is-parked {
+  transform: translateX(-110vw);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.inapp-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 4px;
+}
+
+.inapp-back,
+.inapp-new,
+.inapp-tool,
+.inapp-clear,
+.inapp-tab-main,
+.inapp-tab-close {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+}
+
+.inapp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.inapp-back:hover,
+.inapp-new:hover,
+.inapp-tool:hover:not(:disabled),
+.inapp-tab-close:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.inapp-chevron {
+  width: 10px;
+  height: 10px;
+  margin-left: 2px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.inapp-heading {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inapp-new {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.inapp-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 12px 8px;
+  scrollbar-width: thin;
+}
+
+.inapp-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: 180px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid transparent;
+}
+
+.inapp-tab.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+.inapp-tab-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inapp-mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.inapp-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inapp-tab-close {
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  border-radius: 14px;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inapp-omnibox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 4px 4px 4px 14px;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.inapp-omnibox:focus-within {
+  border-color: var(--accent);
+}
+
+.inapp-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 0;
+}
+
+.inapp-input:focus {
+  outline: none;
+}
+
+.inapp-clear {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.inapp-go {
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.inapp-go:hover {
+  opacity: 0.92;
+}
+
+.inapp-notice {
+  margin: 0 16px 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.inapp-tools {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.inapp-tool {
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.inapp-tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.inapp-tool-end {
+  margin-left: auto;
+}
+
+.inapp-progress {
+  height: 2px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.inapp-progress > span {
+  display: block;
+  height: 100%;
+  width: 35%;
+  background: var(--accent);
+  animation: inapp-slide 1s ease-in-out infinite;
+}
+
+@keyframes inapp-slide {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+.inapp-pages {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+}
+
+.inapp-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.inapp-frame.is-active {
+  z-index: 1;
+  pointer-events: auto;
 }

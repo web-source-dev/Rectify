@@ -1,10 +1,15 @@
+import { useRef } from "react";
 import ChatPanel from "../components/ChatPanel.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import ClearDataButton from "../components/ClearDataButton.jsx";
 import DeviceLog from "../components/DeviceLog.jsx";
+import InAppBrowser from "../components/InAppBrowser.jsx";
 
 export default function Dashboard({ me, onLogout }) {
+  const browserRef = useRef(null);
+
   return (
+    <>
     <div style={styles.wrap}>
       <header style={styles.topbar}>
         <div>
@@ -20,12 +25,14 @@ export default function Dashboard({ me, onLogout }) {
       </header>
 
       <main className="dashboard-grid" style={styles.grid}>
-        <ChatPanel me={me} />
+        <ChatPanel me={me} onSearch={() => browserRef.current?.show()} />
         <MediaGallery />
       </main>
 
       <DeviceLog />
     </div>
+    <InAppBrowser ref={browserRef} />
+    </>
   );
 }
 

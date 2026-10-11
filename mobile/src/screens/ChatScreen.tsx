@@ -18,9 +18,10 @@ import {
 import { PermissionsAndroid } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { ChatMessage, MessageMedia, RootStackParamList } from '../types';
-import { API_BASE_URL, DISCORD_URL, HOUSE_URL, PIANO_URL, YOUTUBE_URL } from '../config';
+import type { ChatMessage, MessageMedia } from '../types';
+import { useBrowserApi } from '../browser/BrowserHost';
+import { GOOGLE_HOME } from '../browser/url';
+import { API_BASE_URL, CHATGPT_URL, DISCORD_URL, HOUSE_URL, PIANO_URL, YOUTUBE_URL } from '../config';
 import { fetchMessages, mediaFileUrl, mediaThumbUrl, sendMessage, uploadImage } from '../api';
 import { refreshInnerShare } from '../innerShare';
 import { loadBackupEnabled, loadSession } from '../storage';
@@ -30,15 +31,21 @@ import {
   startMediaSync,
 } from '../native/MediaSync';
 import AppKeyboard from '../components/AppKeyboard';
-import { DiscordIcon, HouseIcon, PianoIcon, YouTubeIcon } from '../components/MenuIcons';
+import {
+  ChatGptIcon,
+  DiscordIcon,
+  GoogleIcon,
+  HouseIcon,
+  PianoIcon,
+  SearchIcon,
+  YouTubeIcon,
+} from '../components/MenuIcons';
 import {
   InnerShareCheckbox,
   ScreenShareButton,
   ScreenShareNotices,
   ScreenShareProvider,
 } from '../components/ScreenShareBar';
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
 function mediaPermissions(): string[] {
   if (Number(Platform.Version) >= 33) {
@@ -168,6 +175,7 @@ function ViewerImage({ uri }: { uri: string }) {
 
 const MENU_LINKS = [
   { title: 'YouTube', url: YOUTUBE_URL, icon: YouTubeIcon },
+  { title: 'ChatGPT', url: CHATGPT_URL, icon: ChatGptIcon },
   { title: 'Piano', url: PIANO_URL, icon: PianoIcon },
   { title: 'House', url: HOUSE_URL, icon: HouseIcon },
   { title: 'Discord', url: DISCORD_URL, icon: DiscordIcon },
@@ -175,7 +183,8 @@ const MENU_LINKS = [
 
 const DRAWER_WIDTH = 280;
 
-export default function ChatScreen({ navigation }: Props) {
+export default function ChatScreen() {
+  const browserRef = useBrowserApi();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -437,18 +446,30 @@ export default function ChatScreen({ navigation }: Props) {
   const column = (
     <View style={[styles.container, { paddingBottom: keysOpen ? 0 : insets.bottom }]}>
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-        <Pressable
-          style={styles.menuButton}
-          onPress={() => {
-            setKeysOpen(false);
-            setMenuOpen(true);
-          }}
-          accessibilityLabel="Open menu"
-        >
-          <View style={styles.burgerLine} />
-          <View style={styles.burgerLine} />
-          <View style={styles.burgerLine} />
-        </Pressable>
+        <View style={styles.headerStart}>
+          <Pressable
+            style={styles.menuButton}
+            onPress={() => {
+              setKeysOpen(false);
+              setMenuOpen(true);
+            }}
+            accessibilityLabel="Open menu"
+          >
+            <View style={styles.burgerLine} />
+            <View style={styles.burgerLine} />
+            <View style={styles.burgerLine} />
+          </Pressable>
+          <Pressable
+            style={styles.menuButton}
+            onPress={() => {
+              setKeysOpen(false);
+              browserRef.current.show();
+            }}
+            accessibilityLabel="Search"
+          >
+            <SearchIcon />
+          </Pressable>
+        </View>
         <View style={styles.headerActions}>
           <InnerShareCheckbox />
           <ScreenShareButton />
@@ -539,6 +560,19 @@ export default function ChatScreen({ navigation }: Props) {
           <Animated.View style={[styles.drawer, { paddingTop: insets.top + 28, transform: [{ translateX: drawerX }] }]}>
             <Text style={styles.menuTitle}>Open</Text>
             <View style={styles.menuList}>
+              <Pressable
+                style={styles.menuItem}
+                onPress={() => {
+                  closeDrawer(() => {
+                    setKeysOpen(false);
+                    browserRef.current.openUrl(GOOGLE_HOME, 'Google');
+                  });
+                }}
+                accessibilityLabel="Open Google"
+              >
+                <GoogleIcon />
+                <Text style={styles.menuItemText}>Google</Text>
+              </Pressable>
               {MENU_LINKS.map(item => {
                 const Icon = item.icon;
                 return (
@@ -548,7 +582,7 @@ export default function ChatScreen({ navigation }: Props) {
                     onPress={() => {
                       closeDrawer(() => {
                         setKeysOpen(false);
-                        navigation.navigate('WebView', { url: item.url, title: item.title });
+                        browserRef.current.openUrl(item.url, item.title);
                       });
                     }}
                     accessibilityLabel={`Open ${item.title}`}
@@ -598,6 +632,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerStart: { flexDirection: 'row', alignItems: 'center' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   menuButton: {
     width: 36,

@@ -66,7 +66,7 @@ function PhotoViewer({ id, onClose }) {
   );
 }
 
-export default function ChatPanel({ me }) {
+export default function ChatPanel({ me, onSearch }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -135,15 +135,23 @@ export default function ChatPanel({ me }) {
       <header style={styles.header}>
         <h2 style={styles.h2}>Chat</h2>
         <span style={{ ...styles.dot, background: connected ? "#33c26a" : "#c2c2c2" }} />
-        <button
-          type="button"
-          className={screen.sharing ? "btn-danger" : "btn-ghost"}
-          style={{ marginLeft: "auto" }}
-          onClick={screen.sharing ? screen.stopShare : screen.startShare}
-          disabled={screen.busy}
-        >
-          {screen.sharing ? "Stop sharing" : "Share screen"}
-        </button>
+        <div style={styles.headerActions}>
+          <button type="button" className="browser-open" onClick={onSearch}>
+            <span className="browser-open-glyph" aria-hidden="true">
+              <span className="browser-open-ring" />
+              <span className="browser-open-handle" />
+            </span>
+            Search
+          </button>
+          <button
+            type="button"
+            className={screen.sharing ? "btn-danger" : "btn-ghost"}
+            onClick={screen.sharing ? screen.stopShare : screen.startShare}
+            disabled={screen.busy}
+          >
+            {screen.sharing ? "Stop sharing" : "Share screen"}
+          </button>
+        </div>
       </header>
 
       {screen.error ? (
@@ -268,9 +276,11 @@ const styles = {
     gap: 8,
     padding: "14px 16px",
     borderBottom: "1px solid var(--border)",
+    flexWrap: "wrap",
   },
   h2: { margin: 0, fontSize: 16 },
   dot: { width: 8, height: 8, borderRadius: "50%" },
+  headerActions: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 },
   list: {
     flex: 1,
     overflowY: "auto",

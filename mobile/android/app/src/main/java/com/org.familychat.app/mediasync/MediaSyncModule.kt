@@ -11,6 +11,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import org.familychat.app.PrivacyGuard
 
 /**
  * JS bridge for in-app photo/video backup. Sync runs while the app is in the foreground;
@@ -79,6 +80,7 @@ class MediaSyncModule(reactContext: ReactApplicationContext) :
       return
     }
     pickPromise = promise
+    PrivacyGuard.bypassNextLeave()
     try {
       val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
         type = "image/*"
@@ -87,6 +89,7 @@ class MediaSyncModule(reactContext: ReactApplicationContext) :
       activity.startActivityForResult(Intent.createChooser(intent, "Choose a photo"), PICK_IMAGE_REQUEST)
     } catch (e: Exception) {
       pickPromise = null
+      PrivacyGuard.cancelBypass()
       promise.reject("pick_image_failed", e)
     }
   }

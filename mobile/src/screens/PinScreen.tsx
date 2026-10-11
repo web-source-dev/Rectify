@@ -10,13 +10,14 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
+import { restoreLockedBrowser } from '../appLock';
 import { verifyPin, ApiError } from '../api';
 import { refreshInnerShare } from '../innerShare';
 import { loadSession, saveSession } from '../storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Pin'>;
 
-export default function PinScreen({ navigation }: Props) {
+export default function PinScreen({ navigation, route }: Props) {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +33,13 @@ export default function PinScreen({ navigation }: Props) {
       const { token, user } = await verifyPin(pin.trim(), existing?.token);
       await saveSession({ token, user });
       refreshInnerShare();
+      if (route.params?.returnTo === 'WebView') {
+        navigation.reset({ index: 0, routes: [{ name: 'WebView' }] });
+        return;
+      }
       if (user.name) {
         navigation.reset({ index: 0, routes: [{ name: 'Chat' }] });
+        restoreLockedBrowser();
       } else {
         navigation.replace('Name', { token, userId: user.id });
       }

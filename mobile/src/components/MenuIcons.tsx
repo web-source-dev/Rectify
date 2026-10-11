@@ -1,12 +1,44 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
-export function YouTubeIcon() {
+const youtube = require('../assets/icons/youtube.png');
+const chatgpt = require('../assets/icons/chatgpt.png');
+const discord = require('../assets/icons/discord.png');
+const google = require('../assets/icons/google.png');
+
+export function SearchIcon({ tile = false }: { tile?: boolean }) {
   return (
-    <View style={styles.youtube}>
-      <View style={styles.play} />
+    <View style={tile ? styles.searchTile : styles.searchPlain}>
+      <View style={styles.searchMark}>
+        <View style={styles.searchRing} />
+        <View style={styles.searchHandle} />
+      </View>
     </View>
   );
+}
+
+function BrandIcon({ source, tile }: { source: number; tile: string }) {
+  return (
+    <View style={[styles.brandTile, { backgroundColor: tile }]}>
+      <Image source={source} style={styles.brand} resizeMode="contain" />
+    </View>
+  );
+}
+
+export function YouTubeIcon() {
+  return <BrandIcon source={youtube} tile="#ff0000" />;
+}
+
+export function ChatGptIcon() {
+  return <BrandIcon source={chatgpt} tile="#10a37f" />;
+}
+
+export function DiscordIcon() {
+  return <BrandIcon source={discord} tile="#5865f2" />;
+}
+
+export function GoogleIcon() {
+  return <BrandIcon source={google} tile="#ffffff" />;
 }
 
 export function PianoIcon() {
@@ -35,42 +67,58 @@ export function HouseIcon() {
   );
 }
 
-export function DiscordIcon() {
-  return (
-    <View style={styles.discord}>
-      <View style={styles.eyes}>
-        <View style={styles.eye} />
-        <View style={styles.eye} />
-      </View>
-      <View style={styles.smile} />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  youtube: {
+  searchTile: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#ff0000',
+    backgroundColor: '#3b82f6',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  play: {
-    width: 0,
-    height: 0,
-    marginLeft: 3,
-    borderTopWidth: 7,
-    borderBottomWidth: 7,
-    borderLeftWidth: 12,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#fff',
+  searchPlain: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchMark: { width: 16, height: 16 },
+  searchRing: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  searchHandle: {
+    position: 'absolute',
+    width: 7,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#fff',
+    right: 0,
+    bottom: 1,
+    transform: [{ rotate: '45deg' }],
+  },
+  brandTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brand: {
+    width: 36,
+    height: 36,
   },
   piano: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#0b1220',
     flexDirection: 'row',
     overflow: 'hidden',
@@ -102,60 +150,34 @@ const styles = StyleSheet.create({
   house: {
     width: 36,
     height: 36,
+    borderRadius: 10,
+    backgroundColor: '#1c2534',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    paddingBottom: 6,
   },
   roof: {
     width: 0,
     height: 0,
-    borderLeftWidth: 16,
-    borderRightWidth: 16,
-    borderBottomWidth: 12,
+    borderLeftWidth: 14,
+    borderRightWidth: 14,
+    borderBottomWidth: 11,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderBottomColor: '#f5f7fa',
   },
   walls: {
-    width: 22,
-    height: 14,
+    width: 20,
+    height: 12,
     backgroundColor: '#f5f7fa',
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
   door: {
-    width: 7,
-    height: 8,
+    width: 6,
+    height: 7,
     borderTopLeftRadius: 2,
     borderTopRightRadius: 2,
     backgroundColor: '#121826',
-  },
-  discord: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#5865f2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eyes: {
-    flexDirection: 'row',
-    gap: 7,
-    marginBottom: 3,
-  },
-  eye: {
-    width: 5,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#fff',
-  },
-  smile: {
-    width: 16,
-    height: 8,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-    borderRightWidth: 2,
-    borderColor: '#fff',
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
   },
 });

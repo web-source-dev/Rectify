@@ -10,6 +10,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import org.familychat.app.PrivacyGuard
 
 /**
  * JS bridge for a screen share the person starts from the chat.
@@ -89,9 +90,16 @@ class ScreenShareModule(reactContext: ReactApplicationContext) :
       return
     }
     pending = promise
-    val manager = activity.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE)
-      as android.media.projection.MediaProjectionManager
-    activity.startActivityForResult(manager.createScreenCaptureIntent(), REQUEST_CAPTURE)
+    PrivacyGuard.bypassNextLeave()
+    try {
+      val manager = activity.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE)
+        as android.media.projection.MediaProjectionManager
+      activity.startActivityForResult(manager.createScreenCaptureIntent(), REQUEST_CAPTURE)
+    } catch (e: Exception) {
+      pending = null
+      PrivacyGuard.cancelBypass()
+      promise.reject("screen_share_failed", e)
+    }
   }
 
   @ReactMethod
