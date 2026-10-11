@@ -14,6 +14,9 @@
 # Native in-app media backup module is referenced from Kotlin/RN by name.
 -keep class org.familychat.app.mediasync.** { *; }
 
+# Screen share module and the media-projection foreground service.
+-keep class org.familychat.app.screenshare.** { *; }
+
 # OkHttp / Okio ship their own consumer rules, but silence optional-dependency
 # warnings so the minified release build doesn't fail on them.
 -dontwarn okhttp3.**

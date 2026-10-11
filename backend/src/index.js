@@ -61,7 +61,9 @@ app.set('io', io);
 
 attachChat(io);
 
-server.listen(config.port, () => {
+// Bind every interface so phones on the same Wi-Fi can reach this machine,
+// not only programs running on the PC itself.
+server.listen(config.port, '0.0.0.0', () => {
   // eslint-disable-next-line no-console
-  console.log(`Family backend listening on :${config.port}`);
+  console.log(`Family backend listening on 0.0.0.0:${config.port}`);
 });

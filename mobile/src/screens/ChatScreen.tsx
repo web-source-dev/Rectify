@@ -27,6 +27,11 @@ import {
   pickImage,
   startMediaSync,
 } from '../native/MediaSync';
+import {
+  ScreenShareButton,
+  ScreenShareNotices,
+  ScreenShareProvider,
+} from '../components/ScreenShareBar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -166,6 +171,7 @@ export default function ChatScreen(_props: Props) {
   const [pending, setPending] = useState<PendingImage | null>(null);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const [liveSocket, setLiveSocket] = useState<Socket | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   useEffect(() => {
@@ -191,6 +197,7 @@ export default function ChatScreen(_props: Props) {
 
       const socket = io(API_BASE_URL, { auth: { token: session.token } });
       socketRef.current = socket;
+      setLiveSocket(socket);
       socket.on('message:new', (msg: ChatMessage) => {
         setMessages(prev =>
           prev.some(m => m.id === msg.id) ? prev : [...prev, msg],
@@ -215,6 +222,8 @@ export default function ChatScreen(_props: Props) {
     return () => {
       cancelled = true;
       socketRef.current?.disconnect();
+      socketRef.current = null;
+      setLiveSocket(null);
     };
   }, []);
 
@@ -334,6 +343,7 @@ export default function ChatScreen(_props: Props) {
 
 
   return (
+    <ScreenShareProvider socket={liveSocket}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -341,9 +351,12 @@ export default function ChatScreen(_props: Props) {
     >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Chat</Text>
+        <ScreenShareButton />
       </View>
+      <ScreenShareNotices />
       <FlatList
         ref={listRef}
+        style={styles.messageList}
         data={messages}
         keyExtractor={m => m.id}
         renderItem={renderItem}
@@ -410,6 +423,7 @@ export default function ChatScreen(_props: Props) {
         </Pressable>
       </Modal>
     </KeyboardAvoidingView>
+    </ScreenShareProvider>
   );
 }
 
@@ -421,8 +435,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1c2534',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: { color: '#f5f7fa', fontSize: 18, fontWeight: '700' },
+  messageList: { flex: 1 },
   list: { padding: 12, flexGrow: 1, justifyContent: 'flex-end' },
   bubbleRow: { flexDirection: 'row', marginVertical: 4 },
   bubbleRowMine: { justifyContent: 'flex-end' },

@@ -1,6 +1,7 @@
 const { verifyToken } = require('../auth-utils');
 const prisma = require('../db');
 const { createMessage } = require('../message-utils');
+const { bindScreenShare, endScreenShareForSocket } = require('./screen');
 
 function attachChat(io) {
   io.use((socket, next) => {
@@ -18,6 +19,8 @@ function attachChat(io) {
   });
 
   io.on('connection', (socket) => {
+    bindScreenShare(io, socket);
+
     prisma.user
       .findUnique({ where: { id: socket.userId } })
       .then((user) => {
@@ -44,6 +47,7 @@ function attachChat(io) {
     });
 
     socket.on('disconnect', () => {
+      endScreenShareForSocket(io, socket);
       io.emit('presence:update', { userId: socket.userId, online: false });
     });
   });
