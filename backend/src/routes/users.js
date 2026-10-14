@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { noteUserName } = require('../sockets/chat');
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ router.patch('/users/me', requireAuth, async (req, res) => {
     where: { id: req.userId },
     data: { name: trimmed },
   });
+
+  const io = req.app.get('io');
+  if (io) noteUserName(io, user.id, user.name);
 
   res.json({ id: user.id, name: user.name });
 });

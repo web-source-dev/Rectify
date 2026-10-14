@@ -9,8 +9,9 @@ export function connectSocket() {
   socket = io(api.baseUrl, {
     auth: { token },
     reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 8000,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 4000,
+    perMessageDeflate: false,
   });
   return socket;
 }

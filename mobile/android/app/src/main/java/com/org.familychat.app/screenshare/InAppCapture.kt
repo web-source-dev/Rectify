@@ -23,6 +23,7 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
   private var handler: Handler? = null
   private var full: Bitmap? = null
   private var generation = 0
+  private val jpegBuffer = ByteArrayOutputStream(96 * 1024)
 
   fun start(): Boolean {
     if (running.get()) return true
@@ -78,7 +79,8 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
       copyInFlight.set(false)
       return
     }
-    val buffer = bitmapFor(srcW, srcH)
+    val (dstW, dstH) = targetSize(srcW, srcH)
+    val buffer = bitmapFor(dstW, dstH)
     if (buffer == null) {
       copyInFlight.set(false)
       return
@@ -94,12 +96,12 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
           PixelCopy.request(
             activity.window,
             buffer,
-            { result -> deliver(gen, buffer, srcW, srcH, result == PixelCopy.SUCCESS) },
+            { result -> deliver(gen, buffer, result == PixelCopy.SUCCESS) },
             mainHandler,
           )
         } else {
           val ok = drawView(decor, buffer)
-          deliver(gen, buffer, srcW, srcH, ok)
+          deliver(gen, buffer, ok)
         }
       } catch (_: Exception) {
         copyInFlight.set(false)
@@ -107,7 +109,7 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
     }
   }
 
-  private fun deliver(gen: Int, buffer: Bitmap, srcW: Int, srcH: Int, ok: Boolean) {
+  private fun deliver(gen: Int, buffer: Bitmap, ok: Boolean) {
     val loop = handler
     if (loop == null) {
       if (gen != generation) recycleQuietly(buffer)
@@ -117,7 +119,7 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
     loop.post {
       try {
         if (ok && running.get() && gen == generation) {
-          publish(buffer, srcW, srcH)
+          publish(buffer)
         }
       } finally {
         if (gen != generation) recycleQuietly(buffer)
@@ -126,20 +128,15 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
     }
   }
 
-  private fun publish(buffer: Bitmap, srcW: Int, srcH: Int) {
-    val width = even(if (srcW > MAX_WIDTH) MAX_WIDTH else srcW)
+  private fun publish(buffer: Bitmap) {
+    val jpeg = encode(buffer) ?: return
+    ScreenShareBridge.emitFrame(jpeg, "inAppShareFrame")
+  }
+
+  private fun targetSize(srcW: Int, srcH: Int): Pair<Int, Int> {
+    val width = even(minOf(MAX_WIDTH, srcW))
     val height = even((srcH * (width.toFloat() / srcW)).toInt())
-    val scaled = if (buffer.width == width && buffer.height == height) {
-      buffer
-    } else {
-      Bitmap.createScaledBitmap(buffer, width, height, true)
-    }
-    try {
-      val jpeg = encode(scaled) ?: return
-      ScreenShareBridge.emitFrame(jpeg, "inAppShareFrame")
-    } finally {
-      if (scaled !== buffer) recycleQuietly(scaled)
-    }
+    return width to height
   }
 
   private fun bitmapFor(width: Int, height: Int): Bitmap? {
@@ -170,9 +167,9 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
   }
 
   private fun encode(source: Bitmap): ByteArray? {
-    val out = ByteArrayOutputStream()
-    if (!source.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)) return null
-    val bytes = out.toByteArray()
+    jpegBuffer.reset()
+    if (!source.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, jpegBuffer)) return null
+    val bytes = jpegBuffer.toByteArray()
     return if (bytes.size < 32) null else bytes
   }
 
@@ -186,8 +183,8 @@ class InAppCapture(private val reactContext: ReactApplicationContext) {
 
   companion object {
     private const val MAX_WIDTH = 720
-    private const val FRAME_GAP_MS = 400L
-    private const val JPEG_QUALITY = 50
+    private const val FRAME_GAP_MS = 33L
+    private const val JPEG_QUALITY = 55
 
     private fun even(value: Int): Int = (value.coerceAtLeast(2) / 2) * 2
   }

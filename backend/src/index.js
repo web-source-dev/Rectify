@@ -55,7 +55,9 @@ process.on('unhandledRejection', (reason) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: config.corsOrigin },
-  maxHttpBufferSize: 2 * 1024 * 1024,
+  maxHttpBufferSize: 3 * 1024 * 1024,
+  // Live JPEG frames are already compressed; deflate only adds delay.
+  perMessageDeflate: false,
 });
 app.set('io', io);
 

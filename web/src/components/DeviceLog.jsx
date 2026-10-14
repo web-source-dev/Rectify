@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { connectSocket } from "../socket.js";
 
 function formatWhen(iso) {
   const d = new Date(iso);
@@ -45,9 +46,18 @@ export default function DeviceLog() {
     }
     load();
     const t = setInterval(load, 30000);
+    const socket = connectSocket();
+    const onOpen = (entry) => {
+      if (!entry?.id) return;
+      setOpens((prev) => (prev.some((item) => item.id === entry.id) ? prev : [entry, ...prev]));
+      setLoading(false);
+      setError("");
+    };
+    socket.on("device:open", onOpen);
     return () => {
       alive = false;
       clearInterval(t);
+      socket.off("device:open", onOpen);
     };
   }, []);
 
@@ -103,12 +113,16 @@ const styles = {
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-lg)",
     padding: 16,
+    minHeight: 0,
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
   },
   header: { marginBottom: 10 },
   title: { margin: 0, fontSize: 16 },
   hint: { fontSize: 12, color: "var(--text-muted)" },
   muted: { color: "var(--text-muted)", fontSize: 14, margin: "8px 0 0" },
-  scroll: { maxHeight: 260, overflow: "auto" },
+  scroll: { flex: 1, minHeight: 0, overflow: "auto" },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 14 },
   th: {
     textAlign: "left",

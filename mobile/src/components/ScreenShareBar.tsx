@@ -133,7 +133,7 @@ export function ScreenShareProvider({
         if (!sharingRef.current || !id || viewersRef.current < 1) {
           return;
         }
-        socketRef.current?.emit('screen:frame', { shareId: id, frame });
+        socketRef.current?.volatile.compress(false).emit('screen:frame', { shareId: id, frame });
       },
       () => {
         if (!sharingRef.current && !shareIdRef.current) {

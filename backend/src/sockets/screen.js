@@ -5,8 +5,9 @@ const prisma = require('../db');
 const shares = new Map();
 
 const SHARE_ID = /^[A-Za-z0-9_-]{8,80}$/;
-const MAX_FRAME_CHARS = 900_000;
-const MIN_FRAME_GAP_MS = 300;
+const MAX_FRAME_CHARS = 1_400_000;
+// Just under 33ms so a steady 30 fps stream is relayed, while a burst still drops extras.
+const MIN_FRAME_GAP_MS = 28;
 const MAX_WATCHERS = 8;
 
 function validShareId(id) {
@@ -131,7 +132,8 @@ function bindScreenShare(io, socket) {
     if (share.watchers.size === 0) return;
     const message = { shareId, frame };
     for (const watcherId of share.watchers) {
-      io.to(watcherId).emit('screen:frame', message);
+      // JPEG is already compressed. Drop a frame instead of queueing it if the viewer is behind.
+      io.to(watcherId).compress(false).volatile.emit('screen:frame', message);
     }
   });
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, storeSession } from "../api.js";
+import { primePresenceSound } from "../presence.js";
 
 export default function Login({ onLoggedIn }) {
   const [step, setStep] = useState("pin"); // "pin" | "name"
@@ -11,6 +12,7 @@ export default function Login({ onLoggedIn }) {
   async function submitPin(e) {
     e.preventDefault();
     if (!pin.trim()) return;
+    primePresenceSound();
     setError("");
     setBusy(true);
     try {

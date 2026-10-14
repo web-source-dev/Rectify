@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { connectSocket } from "../socket.js";
-import { ScreenFrame, screenShareStyles, useScreenShare } from "./ScreenShare.jsx";
 
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -66,14 +65,13 @@ function PhotoViewer({ id, onClose }) {
   );
 }
 
-export default function ChatPanel({ me, onSearch }) {
+export default function ChatPanel({ me, onSearch, liveShares = [] }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [viewerId, setViewerId] = useState(null);
   const [connected, setConnected] = useState(() => connectSocket().connected);
   const listRef = useRef(null);
-  const screen = useScreenShare();
 
   useEffect(() => {
     let cancelled = false;
@@ -143,59 +141,17 @@ export default function ChatPanel({ me, onSearch }) {
             </span>
             Search
           </button>
-          <button
-            type="button"
-            className={screen.sharing ? "btn-danger" : "btn-ghost"}
-            onClick={screen.sharing ? screen.stopShare : screen.startShare}
-            disabled={screen.busy}
-          >
-            {screen.sharing ? "Stop sharing" : "Share screen"}
-          </button>
         </div>
       </header>
 
-      {screen.error ? (
-        <p className="error-text" style={{ margin: "8px 16px 0" }}>
-          {screen.error}
-        </p>
-      ) : null}
-      {screen.sharing ? (
-        <div style={screenShareStyles.notice}>
-          <span>You are sharing your screen</span>
-          <button type="button" className="btn-danger" onClick={screen.stopShare}>
-            Stop
-          </button>
+      {liveShares.map((share) => (
+        <div key={share.shareId} className="live-banner">
+          <span className="live-pulse" aria-hidden="true" />
+          <span className="live-banner-text">
+            {share.name || "Someone"} is live
+          </span>
         </div>
-      ) : null}
-      {screen.shares
-        .filter((share) => !share.self)
-        .map((share) => (
-          <div key={share.shareId} style={screenShareStyles.notice}>
-            <span>
-              {share.scope === "app"
-                ? `${share.name || "Someone"} is sharing this app`
-                : `${share.name || "Someone"} is sharing their screen`}
-            </span>
-            <button type="button" className="btn" onClick={() => screen.watch(share)}>
-              See it
-            </button>
-          </div>
-        ))}
-      {screen.watching ? (
-        <div style={screenShareStyles.stage}>
-          <div style={screenShareStyles.stageBar}>
-            <span>
-              {screen.watching.scope === "app"
-                ? `${screen.watching.name || "Someone"} is sharing this app`
-                : `${screen.watching.name || "Someone"} is sharing their screen`}
-            </span>
-            <button type="button" className="btn-ghost" onClick={screen.closeWatch}>
-              Close
-            </button>
-          </div>
-          <ScreenFrame shareId={screen.watching.shareId} />
-        </div>
-      ) : null}
+      ))}
 
       <div ref={listRef} style={styles.list}>
         {loading && <p style={styles.muted}>Loading messages…</p>}

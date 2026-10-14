@@ -237,9 +237,35 @@ export default function MediaGallery() {
     setType(t);
   }
 
+  const refreshLatest = useCallback(async () => {
+    try {
+      const data = await api.listMedia({ type, limit: PAGE_SIZE });
+      setItems((prev) => {
+        const seen = new Set(prev.map((entry) => entry.id));
+        const fresh = data.items.filter((entry) => !seen.has(entry.id));
+        return fresh.length ? [...fresh, ...prev] : prev;
+      });
+      refreshStats();
+    } catch {
+      // The grid stays as it is; the next pass tries again.
+    }
+  }, [type, refreshStats]);
+
   useEffect(() => {
     refreshStats();
   }, [refreshStats]);
+
+  // New uploads show up without a manual reload. The socket is instant once the
+  // server emits it; this pass also catches items if that event was missed.
+  useEffect(() => {
+    const timer = setInterval(refreshLatest, 5000);
+    const onFocus = () => refreshLatest();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshLatest]);
 
   // Load the next page as the bottom of the grid scrolls into view.
   useEffect(() => {
@@ -270,9 +296,29 @@ export default function MediaGallery() {
 
   useEffect(() => {
     const socket = connectSocket();
+    const onNew = (item) => {
+      if (!item?.id) return;
+      const mime = item.mimeType || "";
+      if (type === "image" && !mime.startsWith("image")) return;
+      if (type === "video" && !mime.startsWith("video")) return;
+      setItems((prev) => (prev.some((entry) => entry.id === item.id) ? prev : [item, ...prev]));
+      refreshStats();
+    };
+    const onDeleted = (payload) => {
+      if (!payload?.id) return;
+      setItems((prev) => prev.filter((entry) => entry.id !== payload.id));
+      setPreviewId((current) => (current === payload.id ? null : current));
+      refreshStats();
+    };
+    socket.on("media:new", onNew);
+    socket.on("media:deleted", onDeleted);
     socket.on("data:wiped", reset);
-    return () => socket.off("data:wiped", reset);
-  }, [reset]);
+    return () => {
+      socket.off("media:new", onNew);
+      socket.off("media:deleted", onDeleted);
+      socket.off("data:wiped", reset);
+    };
+  }, [reset, refreshStats, type]);
 
   const previewIndex = items.findIndex((i) => i.id === previewId);
   const preview = previewIndex >= 0 ? items[previewIndex] : null;

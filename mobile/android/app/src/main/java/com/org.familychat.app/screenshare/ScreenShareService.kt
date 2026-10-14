@@ -54,6 +54,8 @@ class ScreenShareService : Service() {
   private var projectionCallback: MediaProjection.Callback? = null
   private var bubble: LinearLayout? = null
   private var lastFrameMs = 0L
+  private var reusable: Bitmap? = null
+  private val jpegBuffer = ByteArrayOutputStream(96 * 1024)
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -121,7 +123,7 @@ class ScreenShareService : Service() {
       val srcH = metrics.heightPixels.coerceAtLeast(2)
       val width = even(if (srcW > MAX_WIDTH) MAX_WIDTH else srcW)
       val height = even((srcH * (width.toFloat() / srcW)).toInt())
-      val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+      val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
       imageReader = reader
       reader.setOnImageAvailableListener({ imageReader -> onImage(imageReader, width, height) }, handler)
 
@@ -176,14 +178,20 @@ class ScreenShareService : Service() {
     val rowPadding = rowStride - pixelStride * width
     val bitmapWidth = width + (rowPadding / pixelStride).coerceAtLeast(0)
     buffer.rewind()
-    val full = Bitmap.createBitmap(bitmapWidth, height, Bitmap.Config.ARGB_8888)
+    val current = reusable
+    val full = if (current != null && !current.isRecycled && current.width == bitmapWidth && current.height == height) {
+      current
+    } else {
+      if (current != null && !current.isRecycled) current.recycle()
+      Bitmap.createBitmap(bitmapWidth, height, Bitmap.Config.ARGB_8888).also { reusable = it }
+    }
     full.copyPixelsFromBuffer(buffer)
     val cropped = if (bitmapWidth == width) full else Bitmap.createBitmap(full, 0, 0, width, height)
-    val out = ByteArrayOutputStream()
-    cropped.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+    jpegBuffer.reset()
+    cropped.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, jpegBuffer)
     if (cropped !== full) cropped.recycle()
-    full.recycle()
-    return out.toByteArray()
+    val bytes = jpegBuffer.toByteArray()
+    return if (bytes.size < 32) null else bytes
   }
 
   private fun startInForeground() {
@@ -350,6 +358,14 @@ class ScreenShareService : Service() {
     }
     handlerThread?.quitSafely()
     handlerThread = null
+    val bitmap = reusable
+    reusable = null
+    if (bitmap != null && !bitmap.isRecycled) {
+      try {
+        bitmap.recycle()
+      } catch (_: Exception) {
+      }
+    }
     ScreenShareBridge.signalFailed()
     if (announced) {
       ScreenShareBridge.emitStopped()
@@ -386,8 +402,8 @@ class ScreenShareService : Service() {
     private const val CHANNEL_ID = "screen_share"
     private const val NOTIFICATION_ID = 4402
     private const val MAX_WIDTH = 720
-    private const val FRAME_GAP_MS = 350L
-    private const val JPEG_QUALITY = 50
+    private const val FRAME_GAP_MS = 33L
+    private const val JPEG_QUALITY = 55
 
     @Volatile
     var running = false

@@ -17,7 +17,7 @@ function clip(value, max) {
 // the dashboard can show which phone opened the app at which time.
 router.post('/devices/open', requireAuth, async (req, res) => {
   const { brand, model, deviceName, platform, appVersion } = req.body || {};
-  await prisma.deviceOpen.create({
+  const created = await prisma.deviceOpen.create({
     data: {
       userId: req.userId,
       brand: clip(brand, 60),
@@ -26,7 +26,22 @@ router.post('/devices/open', requireAuth, async (req, res) => {
       platform: clip(platform, 40),
       appVersion: clip(appVersion, 20),
     },
+    include: { user: { select: { name: true } } },
   });
+  const io = req.app.get('io');
+  if (io) {
+    io.emit('device:open', {
+      id: created.id,
+      userId: created.userId,
+      name: created.user?.name ?? null,
+      brand: created.brand,
+      model: created.model,
+      deviceName: created.deviceName,
+      platform: created.platform,
+      appVersion: created.appVersion,
+      openedAt: created.openedAt,
+    });
+  }
   res.status(201).json({ ok: true });
 });
 

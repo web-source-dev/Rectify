@@ -50,33 +50,51 @@ export function useScreenShare() {
     video.playsInline = true;
     video.srcObject = stream;
     const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d", { alpha: false });
-    let timer = 0;
+    const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+    let raf = 0;
     let stopped = false;
+    let encoding = false;
+    let last = 0;
+    const minGap = 1000 / 30;
 
-    const tick = () => {
-      if (stopped || viewersRef.current < 1 || !video.videoWidth || !ctx) return;
-      const maxW = 720;
+    const tick = (now) => {
+      if (stopped) return;
+      raf = window.requestAnimationFrame(tick);
+      if (encoding || viewersRef.current < 1 || !video.videoWidth || !ctx) return;
+      if (now - last < minGap) return;
+      last = now;
+      const maxW = 1280;
       const w = Math.max(2, Math.min(maxW, video.videoWidth)) & ~1;
       const h = Math.max(2, Math.round(video.videoHeight * (w / video.videoWidth))) & ~1;
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
       ctx.drawImage(video, 0, 0, w, h);
-      const data = canvas.toDataURL("image/jpeg", 0.5);
-      const comma = data.indexOf(",");
-      if (comma < 0) return;
-      connectSocket().emit("screen:frame", { shareId, frame: data.slice(comma + 1) });
+      encoding = true;
+      canvas.toBlob((blob) => {
+        if (!blob || stopped || viewersRef.current < 1) {
+          encoding = false;
+          return;
+        }
+        blobToBase64(blob)
+          .then((frame) => {
+            if (!frame || stopped || viewersRef.current < 1) return;
+            connectSocket().volatile.compress(false).emit("screen:frame", { shareId, frame });
+          })
+          .finally(() => {
+            encoding = false;
+          });
+      }, "image/jpeg", 0.55);
     };
 
     video.play().catch(() => {});
-    timer = window.setInterval(tick, 400);
+    raf = window.requestAnimationFrame(tick);
     const track = stream.getVideoTracks()[0];
     const onEnded = () => stopShare();
     track?.addEventListener("ended", onEnded);
 
     return () => {
       stopped = true;
-      window.clearInterval(timer);
+      window.cancelAnimationFrame(raf);
       track?.removeEventListener("ended", onEnded);
       stream.getTracks().forEach((item) => item.stop());
       video.srcObject = null;
@@ -159,7 +177,7 @@ export function useScreenShare() {
     setError("");
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 5 },
+        video: { frameRate: { ideal: 30, max: 30 } },
         audio: false,
       });
       const shareId = createShareId();
@@ -212,65 +230,121 @@ export function useScreenShare() {
   };
 }
 
-export function ScreenFrame({ shareId }) {
-  const [src, setSrc] = useState("");
-
-  useEffect(() => {
-    const socket = connectSocket();
-    const onFrame = (payload) => {
-      if (payload?.shareId !== shareId || typeof payload.frame !== "string") return;
-      setSrc(`data:image/jpeg;base64,${payload.frame}`);
-    };
-    socket.on("screen:frame", onFrame);
-    return () => socket.off("screen:frame", onFrame);
-  }, [shareId]);
-
-  if (!src) {
-    return <p style={frameStyles.wait}>Waiting for the shared screen…</p>;
-  }
-  return <img src={src} alt="Shared screen" style={frameStyles.image} />;
+function blobToBase64(blob) {
+  return blob.arrayBuffer().then((buffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const size = 0x8000;
+    for (let i = 0; i < bytes.length; i += size) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + size));
+    }
+    return btoa(binary);
+  });
 }
 
-const frameStyles = {
-  wait: { color: "var(--text-muted)", textAlign: "center", padding: 24, margin: 0 },
-  image: {
-    display: "block",
-    width: "100%",
-    height: 280,
-    objectFit: "contain",
-    background: "#000",
-  },
-};
+function base64ToBlob(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: "image/jpeg" });
+}
 
-export const screenShareStyles = {
-  notice: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    flexShrink: 0,
-    padding: "10px 12px",
-    margin: "8px 12px 0",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-md)",
-    background: "var(--surface-raised)",
-    fontSize: 14,
-  },
-  stage: {
-    flexShrink: 0,
-    margin: "8px 12px 0",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-md)",
-    overflow: "hidden",
-    background: "#000",
-  },
-  stageBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    padding: "8px 12px",
-    background: "var(--surface)",
-    fontSize: 14,
-  },
-};
+// Paints the newest JPEG only. A slow decode drops the frames in between
+// instead of playing them late, which keeps the picture close to live.
+export function ScreenStage({ shareId, fill = false }) {
+  const imgRef = useRef(null);
+  const fpsRef = useRef(null);
+  const stallRef = useRef(null);
+  const waitRef = useRef(null);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return undefined;
+    const socket = connectSocket();
+    let stopped = false;
+    let busy = false;
+    let pending = "";
+    let currentUrl = "";
+    let shown = 0;
+    let windowStart = performance.now();
+    let lastFrameAt = 0;
+
+    const paint = (frame) => {
+      busy = true;
+      let url = "";
+      try {
+        url = URL.createObjectURL(base64ToBlob(frame));
+      } catch {
+        busy = false;
+        return;
+      }
+      const finish = (ok) => {
+        if (!ok || stopped) {
+          URL.revokeObjectURL(url);
+        } else {
+          if (currentUrl) URL.revokeObjectURL(currentUrl);
+          currentUrl = url;
+          lastFrameAt = performance.now();
+          shown += 1;
+          const now = lastFrameAt;
+          if (now - windowStart >= 1000) {
+            const fps = Math.round((shown * 1000) / (now - windowStart));
+            if (fpsRef.current) fpsRef.current.textContent = `${fps} fps`;
+            shown = 0;
+            windowStart = now;
+          }
+          if (waitRef.current) waitRef.current.hidden = true;
+        }
+        busy = false;
+        if (pending) {
+          const next = pending;
+          pending = "";
+          paint(next);
+        }
+      };
+      img.onload = () => finish(true);
+      img.onerror = () => finish(false);
+      img.src = url;
+    };
+
+    const onFrame = (payload) => {
+      if (stopped || payload?.shareId !== shareId || typeof payload.frame !== "string") return;
+      pending = payload.frame;
+      if (!busy) {
+        const next = pending;
+        pending = "";
+        paint(next);
+      }
+    };
+
+    const stallTimer = window.setInterval(() => {
+      const stalled = lastFrameAt > 0 && performance.now() - lastFrameAt > 1500;
+      stallRef.current?.classList.toggle("is-on", stalled);
+    }, 400);
+
+    socket.on("screen:frame", onFrame);
+    return () => {
+      stopped = true;
+      window.clearInterval(stallTimer);
+      socket.off("screen:frame", onFrame);
+      img.onload = null;
+      img.onerror = null;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [shareId]);
+
+  return (
+    <div className={fill ? "live-picture is-fill" : "live-picture"}>
+      <img ref={imgRef} alt="Live screen" />
+      <span ref={fpsRef} className="live-fps">
+        — fps
+      </span>
+      <p ref={stallRef} className="live-stall">
+        Picture paused — waiting for the next frame
+      </p>
+      <p ref={waitRef} className="live-wait">
+        Waiting for the live picture…
+      </p>
+    </div>
+  );
+}

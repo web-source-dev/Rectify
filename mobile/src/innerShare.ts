@@ -60,7 +60,7 @@ function onFrame(frame: string) {
   if (!announced || !id || viewers < 1 || !socket) {
     return;
   }
-  socket.emit('screen:frame', { shareId: id, frame });
+  socket.volatile.compress(false).emit('screen:frame', { shareId: id, frame });
 }
 
 function announceStart() {
@@ -104,7 +104,10 @@ function ensureSocket(token: string) {
   shareId = null;
   viewers = 0;
   socketToken = token;
-  const current = io(API_BASE_URL, { auth: { token } });
+  const current = io(API_BASE_URL, {
+    auth: { token },
+    perMessageDeflate: { threshold: 0 },
+  });
   socket = current;
   current.on('screen:viewers', (payload: { shareId?: string; count?: number }) => {
     if (payload?.shareId && payload.shareId === shareId) {

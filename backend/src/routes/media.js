@@ -175,6 +175,10 @@ router.post('/media/upload', requireAuth, (req, res) => {
         include: { user: true },
       });
 
+      const payload = serialize(media);
+      const io = req.app.get('io');
+      if (io) io.emit('media:new', payload);
+
       res.json({ id: media.id, url: fileUrl(media.id), duplicate: false });
     } catch (e) {
       await fsp.unlink(file.path).catch(() => {});
@@ -319,6 +323,9 @@ router.delete('/media/:id', requireAuth, async (req, res) => {
   await prisma.media.delete({ where: { id: media.id } });
   await fsp.unlink(filePath).catch(() => {});
   await fsp.unlink(thumbPathFor(media)).catch(() => {});
+
+  const io = req.app.get('io');
+  if (io) io.emit('media:deleted', { id: media.id });
 
   res.status(204).end();
 });

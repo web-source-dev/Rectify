@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   FlatList,
   Image,
   Keyboard,
@@ -227,7 +228,10 @@ export default function ChatScreen() {
         // is not critical to block on.
       }
 
-      const socket = io(API_BASE_URL, { auth: { token: session.token } });
+      const socket = io(API_BASE_URL, {
+        auth: { token: session.token },
+        perMessageDeflate: { threshold: 0 },
+      });
       socketRef.current = socket;
       setLiveSocket(socket);
       socket.on('message:new', (msg: ChatMessage) => {
@@ -301,6 +305,17 @@ export default function ChatScreen() {
       after?.();
     });
   }, [drawerX]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeDrawer();
+      return true;
+    });
+    return () => sub.remove();
+  }, [menuOpen, closeDrawer]);
 
   const selectionRange = (value: string) => {
     const a = Math.max(0, Math.min(selectionRef.current.start, value.length));
@@ -542,19 +557,7 @@ export default function ChatScreen() {
           bottomInset={insets.bottom}
         />
       ) : null}
-    </View>
-  );
-
-  return (
-    <ScreenShareProvider socket={liveSocket} userId={myUserId}>
-    {column}
-      <Modal
-        visible={menuOpen}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => closeDrawer()}
-      >
+      {menuOpen ? (
         <View style={styles.drawerRoot}>
           <Pressable style={styles.menuBackdrop} onPress={() => closeDrawer()} accessibilityLabel="Close menu" />
           <Animated.View style={[styles.drawer, { paddingTop: insets.top + 28, transform: [{ translateX: drawerX }] }]}>
@@ -595,7 +598,13 @@ export default function ChatScreen() {
             </View>
           </Animated.View>
         </View>
-      </Modal>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <ScreenShareProvider socket={liveSocket} userId={myUserId}>
+    {column}
       <Modal
         visible={viewerUri !== null}
         transparent
@@ -648,7 +657,11 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: '#f5f7fa',
   },
-  drawerRoot: { flex: 1 },
+  drawerRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    elevation: 24,
+  },
   menuBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.55)',
