@@ -46,6 +46,12 @@ const BrowserApiContext = createContext<React.MutableRefObject<BrowserApi> | nul
 
 const EMPTY_SESSION: Session = { visible: false, tabs: [], activeId: null };
 
+let browserOpen = false;
+
+export function isBrowserOpen() {
+  return browserOpen;
+}
+
 export function useBrowserApi() {
   const apiRef = useContext(BrowserApiContext);
   if (!apiRef) {
@@ -91,6 +97,7 @@ function InAppBrowser({ apiRef }: { apiRef: React.MutableRefObject<BrowserApi> }
   const tabX = useRef<Record<string, number>>({});
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  browserOpen = session.visible;
   const fieldRef = useRef<TextInput>(null);
   const wantSearchFocus = useRef(false);
   const concealedVisible = useRef(false);

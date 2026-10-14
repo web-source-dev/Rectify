@@ -3,6 +3,7 @@ import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 type ScreenShareNative = {
   start: () => Promise<boolean>;
   stop: () => void;
+  moveToBackground: () => void;
   startInApp: () => Promise<boolean>;
   stopInApp: () => void;
   setCompact: (enabled: boolean) => void;
@@ -40,6 +41,10 @@ export function startScreenCapture() {
 
 export function stopScreenCapture() {
   Native?.stop();
+}
+
+export function moveAppToBackground() {
+  Native?.moveToBackground?.();
 }
 
 export function setScreenShareCompact(enabled: boolean) {

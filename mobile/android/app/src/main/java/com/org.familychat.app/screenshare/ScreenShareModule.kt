@@ -103,6 +103,11 @@ class ScreenShareModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun moveToBackground() {
+    reactApplicationContext.currentActivity?.moveTaskToBack(true)
+  }
+
+  @ReactMethod
   fun stop() {
     if (!ScreenShareService.running) return
     try {

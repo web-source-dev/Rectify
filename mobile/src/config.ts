@@ -28,4 +28,4 @@ export const MEDIA_SYNC_INTERVAL_MS = 60_000;
 
 // App version, reported with each app-open so the web dashboard can show which
 // build a given phone is running. Keep in sync with android versionName.
-export const APP_VERSION = '2.0';
+export const APP_VERSION = '2.3';

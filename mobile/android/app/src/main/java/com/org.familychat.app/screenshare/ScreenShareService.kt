@@ -32,6 +32,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import org.familychat.app.MainActivity
+import org.familychat.app.PrivacyGuard
 import org.familychat.app.R
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -139,6 +140,7 @@ class ScreenShareService : Service() {
       )
       capturing = true
       running = true
+      PrivacyGuard.keepSharing = true
       ScreenShareBridge.signalReady()
     } catch (_: Exception) {
       shutdown()
@@ -331,6 +333,7 @@ class ScreenShareService : Service() {
     if (!released.compareAndSet(false, true)) return
     capturing = false
     running = false
+    PrivacyGuard.keepSharing = false
     hideBubble()
     val projection = mediaProjection
     val callback = projectionCallback

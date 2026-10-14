@@ -41,8 +41,8 @@ android {
         applicationId "org.familychat.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "2.1"
+        versionCode 5
+        versionName "2.3"
     }
     signingConfigs {
         debug {
@@ -73,8 +73,9 @@ android {
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
-            // The app only talks to https endpoints, so cleartext stays off in release.
-            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            // The production API is plain HTTP (an IP and port), so release must
+            // allow cleartext or Android blocks every request to the backend.
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
             // Never fall back to the public debug key for a shareable build: without
             // android/keystore.properties the release APK is simply left unsigned.
             signingConfig releaseKeystoreProperties != null ? signingConfigs.release : null

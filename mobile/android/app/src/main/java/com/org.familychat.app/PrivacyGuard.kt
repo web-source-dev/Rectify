@@ -16,6 +16,11 @@ object PrivacyGuard {
   @Volatile
   var holdCover = false
 
+  // A device screen share must keep running after Home or Back. Those leave
+  // paths otherwise lock the app and tear the share down.
+  @Volatile
+  var keepSharing = false
+
   fun attach(activity: MainActivity) {
     activityRef = WeakReference(activity)
   }
@@ -37,6 +42,9 @@ object PrivacyGuard {
   fun onUserLeaving(activity: MainActivity) {
     if (bypassNext) {
       bypassNext = false
+      return
+    }
+    if (keepSharing) {
       return
     }
     holdCover = true

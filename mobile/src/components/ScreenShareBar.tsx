@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import {
   Alert,
   AppState,
+  BackHandler,
   Image,
   Modal,
   PermissionsAndroid,
@@ -12,11 +13,13 @@ import {
   View,
 } from 'react-native';
 import type { Socket } from 'socket.io-client';
+import { isBrowserOpen } from '../browser/BrowserHost';
 import { getInnerShareState, setExternalShareActive, setInnerShareEnabled, subscribeInnerShare } from '../innerShare';
 import {
   canDrawOverlay,
   isInAppShareAvailable,
   isScreenShareAvailable,
+  moveAppToBackground,
   openOverlaySettings,
   setScreenShareCompact,
   startScreenCapture,
@@ -158,9 +161,17 @@ export function ScreenShareProvider({
       }
       setScreenShareCompact(state !== 'active');
     });
+    const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!sharingRef.current || isBrowserOpen()) {
+        return false;
+      }
+      moveAppToBackground();
+      return true;
+    });
     return () => {
       sub.remove();
       appState.remove();
+      backSub.remove();
       if (sharingRef.current || shareIdRef.current) {
         const id = shareIdRef.current;
         sharingRef.current = false;
